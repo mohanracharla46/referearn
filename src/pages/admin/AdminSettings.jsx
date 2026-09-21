@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { affiliateApi } from '../../services/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../context/ToastContext';
-import { Sliders, ShieldCheck } from 'lucide-react';
 
 export const AdminSettings = () => {
   const { addToast } = useToast();
@@ -13,9 +14,36 @@ export const AdminSettings = () => {
   const [refundHoldDays, setRefundHoldDays] = useState('14');
   const [riskSensitivity, setRiskSensitivity] = useState('Medium');
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: affiliateApi.getSettings,
+  });
+
+  useEffect(() => {
+    if (settings) {
+      if (settings.min_withdrawal_threshold) setMinWithdrawal(settings.min_withdrawal_threshold);
+      if (settings.refund_hold_days) setRefundHoldDays(settings.refund_hold_days);
+      if (settings.risk_sensitivity) setRiskSensitivity(settings.risk_sensitivity);
+    }
+  }, [settings]);
+
+  const updateMutation = useMutation({
+    mutationFn: affiliateApi.updateSettings,
+    onSuccess: () => {
+      addToast({ title: 'Platform Config Updated', message: 'System global parameters saved in Laravel.', type: 'success' });
+    },
+    onError: (err) => {
+      addToast({ title: 'Update Failed', message: err.message, type: 'error' });
+    }
+  });
+
   const handleSave = (e) => {
     e.preventDefault();
-    addToast({ title: 'Platform Config Updated', message: 'System global parameters updated.', type: 'success' });
+    updateMutation.mutate({
+      min_withdrawal_threshold: minWithdrawal,
+      refund_hold_days: refundHoldDays,
+      risk_sensitivity: riskSensitivity,
+    });
   };
 
   return (
@@ -55,7 +83,7 @@ export const AdminSettings = () => {
               ]}
             />
 
-            <Button variant="primary" type="submit">
+            <Button variant="primary" type="submit" isLoading={updateMutation.isPending}>
               Save Global Configuration
             </Button>
           </form>

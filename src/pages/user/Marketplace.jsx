@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext';
 import { affiliateApi } from '../../services/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -10,7 +11,6 @@ import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { CardSkeleton } from '../../components/ui/Skeleton';
 import { formatCurrency } from '../../utils/formatters';
-import { LinkGeneratorModal } from '../../components/common/LinkGeneratorModal';
 import { useToast } from '../../context/ToastContext';
 import { Search, Star, Eye, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,18 +23,23 @@ const WhatsAppIcon = ({ className = "w-4 h-4" }) => (
 
 export const UserMarketplace = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addToast } = useToast();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [sortBy, setSortBy] = useState('popularity');
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: rawProducts = [], isLoading } = useQuery({
     queryKey: ['products', { category, search, sortBy }],
     queryFn: () => affiliateApi.getProducts({ category, search, sortBy }),
   });
 
+  const products = Array.isArray(rawProducts) ? rawProducts : (rawProducts?.data || []);
+
+  const refCode = user?.referral_code || user?.referralCode || 'REF-KISHORE-2026';
+
   const handleWhatsAppShare = (prod) => {
-    const trackedUrl = `https://referearn.io/p/${prod.id}?ref=REF-KISHORE-2026&utm_source=whatsapp`;
+    const trackedUrl = `https://referearn.io/p/${prod.id}?ref=${refCode}&utm_source=whatsapp`;
     const message = `Check out ${prod.name}! Earn up to ${prod.commission} commission: ${trackedUrl}`;
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
@@ -46,7 +51,7 @@ export const UserMarketplace = () => {
   };
 
   const handleQuickShare = (prod) => {
-    const trackedUrl = `https://referearn.io/p/${prod.id}?ref=REF-KISHORE-2026`;
+    const trackedUrl = `https://referearn.io/p/${prod.id}?ref=${refCode}`;
     if (navigator.share) {
       navigator
         .share({
@@ -182,7 +187,7 @@ export const UserMarketplace = () => {
               </div>
 
               {/* Card Actions Footer: View Details, WhatsApp, Share Link */}
-              <div className="pt-3 border-t border-zinc-200 flex items-center justify-between gap-2">
+              <div className="pt-3 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -193,7 +198,7 @@ export const UserMarketplace = () => {
                   View Details
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {/* WhatsApp Direct Share Button */}
                   <button
                     type="button"

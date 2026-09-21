@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -16,6 +17,21 @@ export const LinkGeneratorModal = ({ isOpen, onClose, defaultProduct = null }) =
   const [isCopied, setIsCopied] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => affiliateApi.getProducts(),
+  });
+
+  const productOptions = products.length > 0
+    ? products.map((p) => ({
+        value: p.id,
+        label: `${p.name} (${p.commission} Comm.)`,
+      }))
+    : [
+        { value: 'prod-1', label: 'StackCloud Enterprise Hosting (20% Comm.)' },
+        { value: 'prod-2', label: 'PayFlow Payment Gateway API (₹1,500 Flat)' },
+      ];
+
   const handleGenerate = async () => {
     setLoading(true);
     try {
@@ -24,7 +40,9 @@ export const LinkGeneratorModal = ({ isOpen, onClose, defaultProduct = null }) =
         campaignCode,
         utmSource,
       });
-      setGeneratedUrl(res.link);
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referearn.io';
+      const formattedUrl = res.link ? res.link.replace('https://referearn.io', origin) : `${origin}/p/${selectedProd}?ref=${campaignCode}&utm_source=${utmSource}`;
+      setGeneratedUrl(formattedUrl);
       addToast({
         title: 'Referral Link Generated',
         message: 'Your custom affiliate link is ready for promotion.',
@@ -61,16 +79,10 @@ export const LinkGeneratorModal = ({ isOpen, onClose, defaultProduct = null }) =
           label="Select Target Product / Service"
           value={selectedProd}
           onChange={(e) => setSelectedProd(e.target.value)}
-          options={[
-            { value: 'prod-1', label: 'StackCloud Enterprise Hosting (20% Comm.)' },
-            { value: 'prod-2', label: 'PayFlow Payment Gateway API (₹1,500 Flat)' },
-            { value: 'prod-3', label: 'GrowthCRM Automation Suite (25% Comm.)' },
-            { value: 'prod-4', label: 'CyberShield Endpoint Security (15% Comm.)' },
-            { value: 'prod-5', label: 'OmniSEO Keyword Tracker (₹800 Flat)' },
-          ]}
+          options={productOptions}
         />
 
-        <div className="grid grid-[#1] sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="UTM Source"
             value={utmSource}

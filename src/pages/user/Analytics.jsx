@@ -36,28 +36,28 @@ export const UserAnalytics = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Referral Clicks"
-          value={stats?.totalClicks || 1760}
+          value={stats?.totalClicks ?? 0}
           isCurrency={false}
           subtitle="Tracked visitor sessions"
           icon={MousePointer}
         />
         <StatCard
           title="Total Conversions"
-          value={stats?.totalReferrals || 148}
+          value={stats?.totalReferrals ?? 0}
           isCurrency={false}
           subtitle="Paid signups"
           icon={CheckCircle2}
         />
         <StatCard
           title="Conversion Rate"
-          value={`${stats?.conversionRate || 8.4}%`}
+          value={`${stats?.conversionRate ?? 0}%`}
           isCurrency={false}
           subtitle="Click-to-sale funnel"
           icon={Percent}
         />
         <StatCard
           title="Total Revenue Earned"
-          value={stats?.totalEarnings}
+          value={stats?.totalEarnings ?? 0}
           subtitle="Cleared affiliate commission"
           icon={DollarSign}
         />

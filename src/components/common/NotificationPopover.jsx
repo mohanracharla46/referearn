@@ -4,7 +4,8 @@ import { formatDate } from '../../utils/formatters';
 
 export const NotificationPopover = ({ notifications = [], onMarkRead }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const notifList = Array.isArray(notifications) ? notifications : (notifications?.data || []);
+  const unreadCount = notifList.filter((n) => !n.read).length;
 
   return (
     <div className="relative">
@@ -44,10 +45,10 @@ export const NotificationPopover = ({ notifications = [], onMarkRead }) => {
             </div>
 
             <div className="max-h-80 overflow-y-auto divide-y divide-zinc-100">
-              {notifications.length === 0 ? (
+              {notifList.length === 0 ? (
                 <div className="p-6 text-center text-xs text-zinc-500">No new notifications</div>
               ) : (
-                notifications.map((notif) => (
+                notifList.map((notif) => (
                   <div
                     key={notif.id}
                     className={`p-3.5 text-xs transition-subtle ${

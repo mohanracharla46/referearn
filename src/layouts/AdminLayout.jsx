@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ToastContainer } from '../components/ui/Toast';
@@ -35,6 +35,17 @@ export const AdminLayout = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
   const adminNavItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'Users', path: '/admin/users', icon: Users },
@@ -57,9 +68,9 @@ export const AdminLayout = () => {
   return (
     <div className="min-h-screen bg-zinc-100 flex flex-col font-sans text-zinc-900">
       {/* Top Banner Ticker / Switcher */}
-      <div className="bg-zinc-950 text-white text-xs px-4 py-2 flex items-center justify-between border-b border-zinc-800">
-        <div className="flex items-center gap-2 font-medium">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+      <div className="bg-zinc-950 text-white text-xs px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-zinc-800">
+        <div className="flex items-center gap-2 font-medium text-center sm:text-left">
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
           <span>ADMINISTRATIVE CONTROL PORTAL</span>
           <span className="hidden sm:inline text-zinc-400">| System Governance & Audit Engine</span>
         </div>
@@ -156,11 +167,12 @@ export const AdminLayout = () => {
               </div>
             </div>
             <button
-              onClick={() => {
-                logout();
-                navigate('/auth/login');
+              onClick={async () => {
+                await logout();
+                navigate('/auth/login', { replace: true });
               }}
-              className="p-1.5 text-zinc-400 hover:text-white rounded hover:bg-zinc-800 transition-subtle"
+              className="p-1.5 text-zinc-400 hover:text-white rounded hover:bg-zinc-800 transition-subtle cursor-pointer"
+              title="Logout Admin"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -174,17 +186,18 @@ export const AdminLayout = () => {
               className="fixed inset-0 bg-black/70 backdrop-blur-xs"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="relative w-72 bg-zinc-950 text-white h-full border-r border-zinc-900 flex flex-col p-4 z-50">
-              <div className="flex items-center justify-between pb-4 mb-4 border-b border-zinc-900">
+            <div className="relative w-72 max-w-[85vw] bg-zinc-950 text-white h-[100dvh] max-h-screen border-r border-zinc-900 flex flex-col p-4 z-50 overflow-hidden">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-zinc-900 shrink-0">
                 <span className="font-bold text-base text-white">Admin Console</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1 rounded text-zinc-400 hover:bg-zinc-900"
+                  className="p-1 rounded text-zinc-400 hover:bg-zinc-900 cursor-pointer"
+                  aria-label="Close menu"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <nav className="flex-1 space-y-1 overflow-y-auto">
+              <nav className="flex-1 space-y-1 overflow-y-auto min-h-0 pr-1 select-none">
                 {adminNavItems.map((item) => (
                   <NavLink
                     key={item.path}
@@ -198,11 +211,39 @@ export const AdminLayout = () => {
                       }`
                     }
                   >
-                    <item.icon className="w-4 h-4" />
+                    <item.icon className="w-4 h-4 shrink-0" />
                     <span>{item.label}</span>
                   </NavLink>
                 ))}
               </nav>
+
+              {/* Mobile Drawer Footer: Admin Profile & Logout Button */}
+              <div className="pt-3 mt-3 border-t border-zinc-900 shrink-0 space-y-2">
+                <div className="flex items-center gap-2.5 p-2 bg-zinc-900 rounded-md border border-zinc-800">
+                  <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    AD
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">Admin User</span>
+                    <span className="text-[10px] text-emerald-400 font-mono font-semibold block truncate">
+                      Superuser Console
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    await logout();
+                    navigate('/auth/login', { replace: true });
+                  }}
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-rose-950/80 text-rose-300 hover:bg-rose-900 border border-rose-800 rounded-md text-xs font-bold transition-subtle cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout Admin Account</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -5,7 +5,7 @@ export const PageHeader = ({ title, subtitle, breadcrumbs = [], actions }) => {
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-zinc-200">
       <div>
         {breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1.5 text-xs text-zinc-500 mb-1 font-medium">
+          <nav className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 mb-1 font-medium">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && <span>/</span>}
@@ -20,7 +20,7 @@ export const PageHeader = ({ title, subtitle, breadcrumbs = [], actions }) => {
         {subtitle && <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">{subtitle}</p>}
       </div>
 
-      {actions && <div className="flex items-center gap-2.5 shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2.5 shrink-0">{actions}</div>}
     </div>
   );
 };

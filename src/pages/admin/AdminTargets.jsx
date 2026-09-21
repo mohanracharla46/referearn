@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { affiliateApi } from '../../services/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Table, TableRow, TableCell } from '../../components/ui/Table';
@@ -14,10 +16,10 @@ export const AdminTargets = () => {
   const { addToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const targets = [
-    { id: 'tgt-1', title: 'September Elite Sprint', conversions: 50, reward: 5000.0, deadline: '2026-09-30T23:59:59Z', status: 'Active Sprint' },
-    { id: 'tgt-2', title: 'August Founder Challenge', conversions: 25, reward: 2500.0, deadline: '2026-08-31T23:59:59Z', status: 'Completed' },
-  ];
+  const { data: targets = [], isLoading } = useQuery({
+    queryKey: ['allTargets'],
+    queryFn: affiliateApi.getAllTargets,
+  });
 
   return (
     <div className="space-y-6">

@@ -1,33 +1,49 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { UserOnboardingModal } from '../../components/common/UserOnboardingModal';
+import { ToastContainer } from '../../components/ui/Toast';
 import { Lock, Building2, User } from 'lucide-react';
 
 export const Login = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { login } = useAuth();
   const { addToast } = useToast();
-  const [email, setEmail] = useState('kishore@referearn.io');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, customEmail = null) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const targetEmail = (customEmail || email).trim();
+    if (!targetEmail) {
+      addToast({ title: 'Email Required', message: 'Please enter your email address to log in.', type: 'warning' });
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      login(email, 'password123');
+    try {
+      const loggedUser = await login(targetEmail, 'password123');
+      // Wipe old session query caches
+      queryClient.clear();
+      queryClient.invalidateQueries();
+
       addToast({
         title: 'Welcome Back',
-        message: `Signed in as ${email.includes('admin') ? 'Enterprise Administrator' : 'Affiliate Publisher'}.`,
+        message: `Signed in as ${loggedUser?.role === 'admin' || targetEmail.includes('admin') ? 'Enterprise Administrator' : 'Affiliate Publisher'}.`,
         type: 'success',
       });
-      if (email.includes('admin')) {
-        navigate('/admin/dashboard');
+      if (loggedUser?.role === 'admin' || targetEmail.includes('admin')) {
+        navigate('/admin/dashboard', { replace: true });
       } else {
-        navigate('/app/dashboard');
+        navigate('/app/dashboard', { replace: true });
       }
+    } catch (err) {
+      addToast({ title: 'Login Error', message: err.message || 'Unable to log in.', type: 'error' });
+    } finally {
       setLoading(false);
-    }, 300);
+    }
   };
 
   const fillAffiliateDemo = () => {
@@ -107,7 +123,11 @@ export const Login = () => {
           <div className="space-y-2.5">
             <button
               type="button"
-              onClick={() => handleSubmit({ preventDefault: () => {} })}
+              onClick={() => {
+                const target = email.trim() || 'google.publisher@example.com';
+                setEmail(target);
+                handleSubmit(null, target);
+              }}
               className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -133,7 +153,11 @@ export const Login = () => {
 
             <button
               type="button"
-              onClick={() => handleSubmit({ preventDefault: () => {} })}
+              onClick={() => {
+                const target = email.trim() || 'github.publisher@example.com';
+                setEmail(target);
+                handleSubmit(null, target);
+              }}
               className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs"
             >
               <svg className="w-4 h-4 fill-zinc-900" viewBox="0 0 24 24">
@@ -144,7 +168,11 @@ export const Login = () => {
 
             <button
               type="button"
-              onClick={() => handleSubmit({ preventDefault: () => {} })}
+              onClick={() => {
+                const target = email.trim() || 'sso.publisher@example.com';
+                setEmail(target);
+                handleSubmit(null, target);
+              }}
               className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs"
             >
               <Lock className="w-3.5 h-3.5 text-zinc-600" />
@@ -243,6 +271,12 @@ export const Login = () => {
           <div className="font-bold text-xs tracking-wider text-zinc-800 uppercase">Viktor</div>
         </div>
       </div>
+
+      {/* First Time Onboarding Modal */}
+      <UserOnboardingModal />
+
+      {/* Toast Notification Container */}
+      <ToastContainer />
     </div>
   );
 };

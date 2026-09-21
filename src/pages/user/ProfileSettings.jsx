@@ -9,30 +9,59 @@ import { useToast } from '../../context/ToastContext';
 import { User, ShieldCheck, Lock, Landmark, Bell, Sliders } from 'lucide-react';
 
 export const UserProfileSettings = () => {
-  const { user } = useAuth();
+  const { user, updateUserProfile } = useAuth();
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('account');
 
   // Account State
-  const [name, setName] = useState(user?.name || 'Kishore Kumar');
-  const [email, setEmail] = useState(user?.email || 'kishore@referearn.io');
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
 
   // Payment State
-  const [upiId, setUpiId] = useState(user?.upiId || 'kishore@okaxis');
-  const [bankAccount, setBankAccount] = useState('409218902410');
-  const [ifsc, setIfsc] = useState('HDFC0001234');
+  const [upiId, setUpiId] = useState(user?.upi_id || user?.upiId || '');
+  const [bankAccount, setBankAccount] = useState(user?.bank_account || user?.bankAccount || '');
+  const [ifsc, setIfsc] = useState(user?.ifsc || 'HDFC0001234');
 
   // Password state
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = (e) => {
+  React.useEffect(() => {
+    if (user) {
+      if (user.name) setName(user.name);
+      if (user.email) setEmail(user.email);
+      if (user.phone) setPhone(user.phone);
+      if (user.upi_id || user.upiId) setUpiId(user.upi_id || user.upiId);
+      if (user.bank_account || user.bankAccount) setBankAccount(user.bank_account || user.bankAccount);
+    }
+  }, [user]);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    addToast({
-      title: 'Settings Saved',
-      message: 'Your profile settings have been successfully updated.',
-      type: 'success',
-    });
+    setLoading(true);
+    try {
+      await updateUserProfile({
+        name,
+        phone,
+        upi_id: upiId,
+        bank_account: bankAccount,
+      });
+      addToast({
+        title: 'Settings Saved',
+        message: 'Your profile settings have been successfully updated in database.',
+        type: 'success',
+      });
+    } catch (err) {
+      addToast({
+        title: 'Save Failed',
+        message: err.message || 'Could not update settings',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -10,7 +10,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { CardSkeleton } from '../../components/ui/Skeleton';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { LinkGeneratorModal } from '../../components/common/LinkGeneratorModal';
 import { QuickWithdrawalModal } from '../../components/common/QuickWithdrawalModal';
 import {
   DollarSign,
@@ -26,20 +25,23 @@ import {
   Share2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 export const UserDashboard = () => {
   const navigate = useNavigate();
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const { user } = useAuth();
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['userStats'],
+    queryKey: ['userStats', user?.email],
     queryFn: affiliateApi.getUserStats,
+    refetchInterval: 3000,
   });
 
   const { data: target } = useQuery({
-    queryKey: ['target'],
+    queryKey: ['target', user?.email],
     queryFn: affiliateApi.getTarget,
+    refetchInterval: 5000,
   });
 
   const { data: chartData = [] } = useQuery({
@@ -48,8 +50,9 @@ export const UserDashboard = () => {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', user?.email],
     queryFn: () => affiliateApi.getTransactions(),
+    refetchInterval: 3000,
   });
 
   const { data: products = [] } = useQuery({
@@ -77,24 +80,14 @@ export const UserDashboard = () => {
         title="Dashboard Overview"
         subtitle="Monitor cleared revenue, active conversions, and campaign growth."
         actions={
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsLinkModalOpen(true)}
-              icon={Sparkles}
-            >
-              Generate Link
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsWithdrawModalOpen(true)}
-              icon={ArrowUpRight}
-            >
-              Withdraw Earnings
-            </Button>
-          </>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsWithdrawModalOpen(true)}
+            icon={ArrowUpRight}
+          >
+            Withdraw Earnings
+          </Button>
         }
       />
 
@@ -173,7 +166,7 @@ export const UserDashboard = () => {
                   <Target className="w-4 h-4 text-zinc-950" />
                   <span className="text-sm font-semibold text-zinc-900">Active Sprint Target</span>
                 </div>
-                <Badge variant="dark">₹5,000 BONUS</Badge>
+                <Badge variant="dark">{formatCurrency(target?.rewardAmount || 0)} BONUS</Badge>
               </div>
             }
           >
@@ -306,9 +299,9 @@ export const UserDashboard = () => {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setIsLinkModalOpen(true)}
+                    onClick={() => navigate(`/app/product/${prod.id}`)}
                   >
-                    Promote
+                    View Campaign
                   </Button>
                 </div>
               ))}
@@ -318,14 +311,10 @@ export const UserDashboard = () => {
       </div>
 
       {/* Global Modals */}
-      <LinkGeneratorModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-      />
       <QuickWithdrawalModal
         isOpen={isWithdrawModalOpen}
         onClose={() => setIsWithdrawModalOpen(false)}
-        availableBalance={stats?.availableBalance || 7500.0}
+        availableBalance={stats?.availableBalance ?? 0}
       />
     </div>
   );

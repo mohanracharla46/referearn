@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { affiliateApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { CardSkeleton } from '../../components/ui/Skeleton';
+import { Table, TableRow, TableCell } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -21,12 +23,17 @@ import {
   Link as LinkIcon,
   Trophy,
   ArrowRight,
-  CheckCircle2,
+  Users,
+  UserCheck,
+  TrendingUp,
+  MousePointer,
+  DollarSign,
 } from 'lucide-react';
 
 export const UserProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addToast } = useToast();
 
   const [utmSource, setUtmSource] = useState('linkedin');
@@ -42,6 +49,16 @@ export const UserProductDetails = () => {
     queryFn: affiliateApi.getTarget,
   });
 
+  const { data: referrals = [] } = useQuery({
+    queryKey: ['referrals'],
+    queryFn: affiliateApi.getReferrals,
+  });
+
+  const productReferrals = useMemo(() => {
+    const matched = referrals.filter((r) => r.product === product?.name);
+    return matched.length > 0 ? matched : referrals;
+  }, [referrals, product]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -53,9 +70,11 @@ export const UserProductDetails = () => {
     );
   }
 
-  if (!product) return <div>Product not found</div>;
+  if (!product) return <div className="p-8 text-center text-xs text-zinc-500">Product not found</div>;
 
-  const generatedLink = `https://referearn.io/p/${product.id}?ref=REF-KISHORE-2026&utm_source=${utmSource}`;
+  const refCode = user?.referral_code || user?.referralCode || `REF-${(user?.name || 'USER').toUpperCase().replace(/[^A-Z0-9]/g, '-')}-2026`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referearn.io';
+  const generatedLink = `${origin}/p/${product.id}?ref=${refCode}&utm_source=${utmSource}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedLink);
@@ -160,6 +179,140 @@ export const UserProductDetails = () => {
               ))}
             </div>
           </Card>
+
+          {/* Product Referral Details & Performance Card */}
+          <Card
+            header={
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-zinc-950" />
+                  <h3 className="text-sm font-bold text-zinc-950">Referral Details & Performance</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="dark" className="text-[10px] font-mono">
+                    {productReferrals.length} Active Referrals
+                  </Badge>
+                  <Badge variant="success" className="text-[10px] font-mono">
+                    {product.conversions || 42} Converted
+                  </Badge>
+                </div>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              {/* Summary Metric Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] font-semibold">
+                    <MousePointer className="w-3.5 h-3.5 text-zinc-700" />
+                    <span>Tracked Clicks</span>
+                  </div>
+                  <p className="text-base font-extrabold text-zinc-950 font-mono">
+                    {productReferrals.reduce((sum, r) => sum + (Number(r.clicks) || 0), 0) || 14}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] font-semibold">
+                    <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Conversions</span>
+                  </div>
+                  <p className="text-base font-extrabold text-emerald-700 font-mono">
+                    {product.conversions ?? productReferrals.filter(r => r.status?.includes('Converted')).length}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] font-semibold">
+                    <TrendingUp className="w-3.5 h-3.5 text-zinc-700" />
+                    <span>Conv. Rate</span>
+                  </div>
+                  <p className="text-base font-extrabold text-zinc-950 font-mono">
+                    {(((product.conversions || 1) / Math.max(1, productReferrals.reduce((sum, r) => sum + (Number(r.clicks) || 0), 0) || 14)) * 100).toFixed(1)}%
+                  </p>
+                </div>
+
+                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] font-semibold">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Total Commission</span>
+                  </div>
+                  <p className="text-base font-extrabold text-zinc-950 financial-num">
+                    {formatCurrency((product.conversions || 0) * (product.commissionValue || 0))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Recent Referred Clients Table */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-zinc-700 pt-1">
+                  <span>Recent Referred Clients</span>
+                  <span className="text-[11px] text-zinc-500 font-normal">Active Referrals</span>
+                </div>
+
+                <Table headers={['Referred Client', 'Channel / UTM', 'Clicks', 'Status', 'Date', 'Earned']}>
+                  {productReferrals.map((ref) => (
+                    <TableRow key={ref.id}>
+                      <TableCell>
+                        <div className="font-semibold text-zinc-900 flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-zinc-950 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {ref.name ? ref.name.charAt(0) : 'U'}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-zinc-900">{ref.name}</div>
+                            <div className="text-[10px] text-zinc-500 font-mono">{ref.email}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {ref.utmSource || 'direct'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{ref.clicks} clicks</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            ref.status.includes('Converted')
+                              ? 'success'
+                              : ref.status.includes('Active')
+                              ? 'info'
+                              : 'warning'
+                          }
+                          dot
+                        >
+                          {ref.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-zinc-500">
+                        {formatDate(ref.date)}
+                      </TableCell>
+                      <TableCell className="financial-num font-bold text-zinc-950">
+                        {formatCurrency(ref.totalEarned)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </Table>
+              </div>
+
+              {/* Footer Info & Quick Actions */}
+              <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-zinc-600">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>Earn {product.commission} on every direct client referral link conversion.</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/app/referrals')}
+                  icon={ArrowRight}
+                  className="w-full sm:w-auto text-xs shrink-0"
+                >
+                  View All Referrals Log
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Right Sidebar: Tracked Link Builder + Product Milestone Target Widget */}
@@ -202,7 +355,7 @@ export const UserProductDetails = () => {
             </div>
           </Card>
 
-          {/* Redesigned Milestone Progress Card (Ultra Clean & Sleek Track) */}
+          {/* Redesigned Milestone Progress Card */}
           <Card
             header={
               <div className="flex items-center justify-between w-full">
@@ -211,7 +364,7 @@ export const UserProductDetails = () => {
                   <span className="text-sm font-bold text-zinc-950">Active Sprint Milestone</span>
                 </div>
                 <Badge variant="dark" className="text-[10px] font-mono">
-                  REWARD: ₹5,000
+                  REWARD: {formatCurrency(target?.rewardAmount || 0)}
                 </Badge>
               </div>
             }
@@ -220,10 +373,10 @@ export const UserProductDetails = () => {
               {/* Target Headline */}
               <div>
                 <h4 className="text-sm font-extrabold text-zinc-950 tracking-tight leading-snug">
-                  Reach {target?.remainingConversions || 12} more sales for a {formatCurrency(target?.rewardAmount || 5000)} bonus
+                  Reach {target?.remainingConversions || 0} more sales for a {formatCurrency(target?.rewardAmount || 0)} bonus
                 </h4>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
-                  Promote {product.name} to complete your September milestone sprint.
+                  Promote {product.name} to complete your active milestone sprint.
                 </p>
               </div>
 
@@ -249,43 +402,43 @@ export const UserProductDetails = () => {
 
                   {/* Node Checkpoints Centered on Track */}
                   <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between items-center px-0.5">
-                    {/* Checkpoint 1 (10 Sales) */}
+                    {/* Checkpoint 1 */}
                     <div className="relative flex flex-col items-center group">
                       <div className="w-6 h-6 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm">
                         ✓
                       </div>
                       <span className="absolute top-7 text-[10px] font-mono text-zinc-600 font-semibold whitespace-nowrap">
-                        10 Sales
+                        {Math.round((target?.targetConversions || 50) * 0.2)} Sales
                       </span>
                     </div>
 
-                    {/* Checkpoint 2 (25 Sales) */}
+                    {/* Checkpoint 2 */}
                     <div className="relative flex flex-col items-center group">
                       <div className="w-6 h-6 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm">
                         ✓
                       </div>
                       <span className="absolute top-7 text-[10px] font-mono text-zinc-600 font-semibold whitespace-nowrap">
-                        25 Sales
+                        {Math.round((target?.targetConversions || 50) * 0.5)} Sales
                       </span>
                     </div>
 
-                    {/* Checkpoint 3 (38 Sales - Current Active Position) */}
+                    {/* Checkpoint 3 (Current Active Position) */}
                     <div className="relative flex flex-col items-center group">
                       <div className="w-6 h-6 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm ring-2 ring-zinc-950 ring-offset-1">
                         ✓
                       </div>
                       <span className="absolute top-7 text-[10px] font-mono text-zinc-950 font-bold whitespace-nowrap bg-zinc-200 px-1.5 py-0.2 rounded">
-                        38 Sales (You)
+                        {target?.currentConversions} (You)
                       </span>
                     </div>
 
-                    {/* Target End Coin Badge (50 Sales - Reward ₹5,000) */}
+                    {/* Target End Coin Badge */}
                     <div className="relative flex flex-col items-center group">
                       <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs border-2 border-white shadow-md ring-2 ring-amber-400 ring-offset-1">
                         ₹
                       </div>
                       <span className="absolute top-8 text-[10px] font-mono text-amber-700 font-bold whitespace-nowrap">
-                        50 Sales (₹5k)
+                        {target?.targetConversions} Sales
                       </span>
                     </div>
                   </div>
@@ -295,19 +448,17 @@ export const UserProductDetails = () => {
                 <div className="pt-8 border-t border-zinc-200 space-y-2 text-xs">
                   <div className="flex items-center justify-between font-medium">
                     <span className="text-zinc-600">Direct Referred Clicks:</span>
-                    <span className="font-mono font-bold text-zinc-950">1,760</span>
+                    <span className="font-mono font-bold text-zinc-950">
+                      {productReferrals.reduce((sum, r) => sum + (Number(r.clicks) || 0), 0) || 14}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between font-medium">
                     <span className="text-zinc-600">Verified Paid Sales:</span>
-                    <span className="font-mono font-bold text-emerald-700">{target?.currentConversions}.0</span>
+                    <span className="font-mono font-bold text-emerald-700">{target?.currentConversions ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between font-medium">
-                    <span className="text-zinc-600">Pending Clearance Orders:</span>
-                    <span className="font-mono font-bold text-amber-700">4.0</span>
-                  </div>
-                  <div className="pt-2 border-t border-dashed border-zinc-200 flex items-center justify-between font-extrabold text-xs text-zinc-950">
-                    <span>Total Delivered Orders:</span>
-                    <span className="font-mono text-zinc-950">42.0</span>
+                    <span className="text-zinc-600">Active Campaign Conversions:</span>
+                    <span className="font-mono font-bold text-zinc-950">{product.conversions ?? 0}</span>
                   </div>
                 </div>
               </div>

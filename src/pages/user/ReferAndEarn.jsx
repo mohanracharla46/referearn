@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { affiliateApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -10,7 +11,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Table, TableRow, TableCell } from '../../components/ui/Table';
 import { useToast } from '../../context/ToastContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { LinkGeneratorModal } from '../../components/common/LinkGeneratorModal';
 import {
   Share2,
   Copy,
@@ -24,22 +24,27 @@ import {
 } from 'lucide-react';
 
 export const UserReferAndEarn = () => {
+  const { user } = useAuth();
   const { addToast } = useToast();
   const [copied, setCopied] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: stats } = useQuery({
-    queryKey: ['userStats'],
+    queryKey: ['userStats', user?.email],
     queryFn: affiliateApi.getUserStats,
+    refetchInterval: 3000,
   });
 
-  const { data: referrals = [] } = useQuery({
-    queryKey: ['referrals'],
+  const { data: rawReferrals = [] } = useQuery({
+    queryKey: ['referrals', user?.email],
     queryFn: affiliateApi.getReferrals,
+    refetchInterval: 3000,
   });
 
-  const mainReferralCode = 'REF-KISHORE-2026';
-  const mainReferralUrl = `https://referearn.io/join?ref=${mainReferralCode}`;
+  const referrals = Array.isArray(rawReferrals) ? rawReferrals : (rawReferrals?.data || []);
+
+  const mainReferralCode = user?.referral_code || user?.referralCode || `REF-${(user?.name || 'USER').toUpperCase().replace(/[^A-Z0-9]/g, '-')}-2026`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referearn.io';
+  const mainReferralUrl = `${origin}/join?ref=${mainReferralCode}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(mainReferralUrl);
@@ -53,11 +58,6 @@ export const UserReferAndEarn = () => {
       <PageHeader
         title="Refer & Earn Center"
         subtitle="Share your global referral link to earn recurring commissions on all products."
-        actions={
-          <Button variant="primary" size="sm" onClick={() => setIsModalOpen(true)} icon={Sparkles}>
-            Custom Link Generator
-          </Button>
-        }
       />
 
       {/* Main Referral Code & Link Box */}
@@ -71,9 +71,12 @@ export const UserReferAndEarn = () => {
               <span className="font-mono text-2xl font-black text-white bg-zinc-900 border border-zinc-800 px-3 py-1 rounded">
                 {mainReferralCode}
               </span>
+              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2.5 py-1 rounded">
+                Earn ₹10 / Referral
+              </span>
             </div>
             <p className="text-xs text-zinc-300 leading-relaxed pt-1">
-              Direct clients to any product landing page using your link. Attributions remain active for 90 days.
+              Earn a flat ₹10.00 commission per referral. Referral commissions enter your Pending balance first and are credited to your Available Balance upon Admin approval.
             </p>
           </div>
 
@@ -104,21 +107,21 @@ export const UserReferAndEarn = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           title="Total Referral Clicks"
-          value={stats?.totalClicks || 1760}
+          value={stats?.totalClicks ?? 0}
           isCurrency={false}
           subtitle="Unique visitor clicks"
           icon={MousePointer}
         />
         <StatCard
           title="Successful Conversions"
-          value={stats?.totalReferrals || 148}
+          value={stats?.totalReferrals ?? 0}
           isCurrency={false}
           subtitle="Paid signups & orders"
           icon={CheckCircle2}
         />
         <StatCard
           title="Earned From Referrals"
-          value={stats?.totalEarnings || 42850.0}
+          value={stats?.totalEarnings ?? 0}
           subtitle="Cleared payout balance"
           icon={DollarSign}
         />
@@ -157,8 +160,6 @@ export const UserReferAndEarn = () => {
           ))}
         </Table>
       </Card>
-
-      <LinkGeneratorModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 };

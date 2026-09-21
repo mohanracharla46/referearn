@@ -12,16 +12,19 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { DollarSign, Clock, RotateCcw, Download, Search, CheckCircle2 } from 'lucide-react';
 
 export const UserEarnings = () => {
+  const { user } = useAuth();
   const { addToast } = useToast();
   const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');
 
   const { data: stats } = useQuery({
-    queryKey: ['userStats'],
+    queryKey: ['userStats', user?.email],
     queryFn: affiliateApi.getUserStats,
+    refetchInterval: 3000,
   });
 
   const { data: chartData = [] } = useQuery({
@@ -30,8 +33,9 @@ export const UserEarnings = () => {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions', { status: statusFilter, search }],
+    queryKey: ['transactions', user?.email, { status: statusFilter, search }],
     queryFn: () => affiliateApi.getTransactions({ status: statusFilter, search }),
+    refetchInterval: 3000,
   });
 
   const handleExportCSV = () => {
@@ -58,25 +62,25 @@ export const UserEarnings = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Lifetime"
-          value={stats?.totalEarnings}
+          value={stats?.totalEarnings ?? 0}
           subtitle="Cumulative cleared revenue"
           icon={DollarSign}
         />
         <StatCard
-          title="Approved Revenue"
-          value={stats?.totalEarnings - stats?.pendingEarnings}
-          subtitle="Ready / already paid"
+          title="Available Balance"
+          value={stats?.availableBalance ?? 0}
+          subtitle="Ready for instant withdrawal"
           icon={CheckCircle2}
         />
         <StatCard
           title="Pending Clearance"
-          value={stats?.pendingEarnings}
-          subtitle="14-day hold period"
+          value={stats?.pendingEarnings ?? 0}
+          subtitle="Awaiting admin approval"
           icon={Clock}
         />
         <StatCard
           title="Reversed / Refunded"
-          value={2999.80}
+          value={transactions.filter(t => t.status === 'Reversed').reduce((sum, t) => sum + (Number(t.commission) || 0), 0)}
           subtitle="Customer refund reversals"
           icon={RotateCcw}
         />

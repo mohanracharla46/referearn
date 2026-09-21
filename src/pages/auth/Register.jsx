@@ -1,33 +1,61 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../context/ToastContext';
-import { User, Mail, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
+import { User, Mail, Lock, ShieldCheck, ArrowRight, Sparkles, Phone } from 'lucide-react';
 
 export const Register = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const [searchParams] = useSearchParams();
+  const params = useParams();
+  const { register } = useAuth();
   const { addToast } = useToast();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [referrerCode, setReferrerCode] = useState('');
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    const urlRef = searchParams.get('ref') || params.code || localStorage.getItem('referearn_referrer_code') || '';
+    if (urlRef) {
+      setReferrerCode(urlRef);
+      localStorage.setItem('referearn_referrer_code', urlRef);
+    }
+  }, [searchParams, params]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      login(email || 'newuser@referearn.io', password);
+    try {
+      await register({
+        name,
+        email,
+        phone,
+        password,
+        referral_code: referrerCode || undefined,
+      });
       addToast({
         title: 'Account Created',
-        message: 'Welcome to ReferEarn! Your affiliate dashboard is ready.',
+        message: referrerCode
+          ? `Welcome to ReferEarn! Linked to partner ${referrerCode}.`
+          : 'Welcome to ReferEarn! Your affiliate dashboard is ready.',
         type: 'success',
       });
       navigate('/app/dashboard');
+    } catch (err) {
+      addToast({
+        title: 'Registration Error',
+        message: err.message,
+        type: 'error',
+      });
+    } finally {
       setLoading(false);
-    }, 350);
+    }
   };
 
   return (
@@ -77,11 +105,20 @@ export const Register = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {referrerCode && (
+                <div className="p-3 bg-emerald-50/90 border border-emerald-200 rounded-lg flex items-center gap-2.5 text-xs text-emerald-800 font-semibold animate-in fade-in">
+                  <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Referred by Partner: <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-emerald-300">{referrerCode}</span>
+                  </span>
+                </div>
+              )}
+
               <Input
                 label="Full Name / Company Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Kishore Kumar"
+                placeholder="Rohit Sharma"
                 icon={User}
                 required
               />
@@ -91,9 +128,18 @@ export const Register = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="kishore@company.com"
+                placeholder="rohit@example.com"
                 icon={Mail}
                 required
+              />
+
+              <Input
+                label="Mobile Phone Number"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="98765 43210"
+                icon={Phone}
               />
 
               <Input

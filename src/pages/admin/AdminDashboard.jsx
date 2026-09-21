@@ -56,7 +56,7 @@ export const AdminDashboard = () => {
             onClick={() => navigate('/admin/fraud-risk')}
             icon={ShieldAlert}
           >
-            Review 4 Risk Flags
+            Review {stats?.flaggedFraudAlerts ?? fraudLogs.length} Risk Flags
           </Button>
         }
       />

@@ -14,10 +14,17 @@ export const UserTargets = () => {
     queryFn: affiliateApi.getTarget,
   });
 
+  const { data: allTargets = [] } = useQuery({
+    queryKey: ['allTargets'],
+    queryFn: affiliateApi.getAllTargets,
+  });
+
   const { data: referrals = [] } = useQuery({
     queryKey: ['referrals'],
     queryFn: affiliateApi.getReferrals,
   });
+
+  const completedMilestones = allTargets.filter((t) => t.completed);
 
   return (
     <div className="space-y-6">
@@ -36,7 +43,7 @@ export const UserTargets = () => {
               <span className="text-base font-bold text-zinc-950">Active Sprint Milestone</span>
             </div>
             <Badge variant="dark" className="text-xs px-2.5 py-1 font-mono font-bold">
-              REWARD: ₹5,000.00
+              REWARD: {formatCurrency(target?.rewardAmount || 0)}
             </Badge>
           </div>
         }
@@ -52,7 +59,7 @@ export const UserTargets = () => {
             <div className="text-right">
               <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block font-mono">Bonus Reward</span>
               <span className="financial-num text-2xl font-black text-zinc-950">
-                {formatCurrency(target?.rewardAmount || 5000)}
+                {formatCurrency(target?.rewardAmount || 0)}
               </span>
             </div>
           </div>
@@ -88,7 +95,9 @@ export const UserTargets = () => {
             </div>
             <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs">
               <span className="text-zinc-500 font-semibold uppercase tracking-wider text-[10px] block">Milestone Status</span>
-              <span className="text-base font-bold text-amber-700 block mt-0.5">In Progress</span>
+              <span className="text-base font-bold text-amber-700 block mt-0.5">
+                {target?.completed ? 'Completed' : 'In Progress'}
+              </span>
             </div>
           </div>
         </div>
@@ -103,7 +112,7 @@ export const UserTargets = () => {
               <h3 className="text-sm font-bold text-zinc-950">Referred Clients Contributing to Sprint Target</h3>
             </div>
             <Badge variant="success" className="font-mono text-[10px]">
-              38 CONVERSIONS COUNTED
+              {target?.currentConversions ?? referrals.filter((r) => r.status?.includes('Converted')).length} CONVERSIONS COUNTED
             </Badge>
           </div>
         }
@@ -134,16 +143,24 @@ export const UserTargets = () => {
       {/* Past Completed Milestones */}
       <Card header={<h3 className="text-sm font-semibold text-zinc-900">Completed Milestone Archive</h3>}>
         <div className="space-y-3">
-          <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div>
-                <h4 className="text-xs font-bold text-zinc-900">August 2026 Founder Challenge</h4>
-                <p className="text-[11px] text-zinc-500">Achieved 25 conversions • Unlocked ₹2,500.00 bonus</p>
+          {completedMilestones.length === 0 ? (
+            <div className="p-4 text-xs text-zinc-500 text-center">No completed milestones yet.</div>
+          ) : (
+            completedMilestones.map((cm) => (
+              <div key={cm.id} className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-900">{cm.title}</h4>
+                    <p className="text-[11px] text-zinc-500">
+                      Achieved {cm.conversions} conversions • Unlocked {formatCurrency(cm.reward)} bonus
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="success" className="font-semibold">COMPLETED & PAID</Badge>
               </div>
-            </div>
-            <Badge variant="success" className="font-semibold">COMPLETED & PAID</Badge>
-          </div>
+            ))
+          )}
         </div>
       </Card>
     </div>

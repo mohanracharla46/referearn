@@ -91,7 +91,7 @@ export const UserWithdrawals = () => {
       <QuickWithdrawalModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        availableBalance={stats?.availableBalance || 7500.0}
+        availableBalance={stats?.availableBalance ?? 0}
       />
     </div>
   );

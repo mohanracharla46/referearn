@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 // Layouts
 import { UserLayout } from '../layouts/UserLayout';
@@ -8,6 +9,7 @@ import { AdminLayout } from '../layouts/AdminLayout';
 // Auth Pages
 import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
+import { JoinReferral } from '../pages/auth/JoinReferral';
 import { ForgotPassword } from '../pages/auth/ForgotPassword';
 import { ResetPassword } from '../pages/auth/ResetPassword';
 
@@ -42,20 +44,83 @@ import { AdminFraudRisk } from '../pages/admin/AdminFraudRisk';
 import { AdminAuditLogs } from '../pages/admin/AdminAuditLogs';
 import { AdminSettings } from '../pages/admin/AdminSettings';
 
+// Guard for routes requiring authentication
+const ProtectedRoute = ({ children, requiredRole = null }) => {
+  const { user, isAuthenticated } = useAuth();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  if (requiredRole === 'admin' && user.role !== 'admin') {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Guard for login / register (if already logged in, redirect to dashboard)
+const PublicAuthRoute = ({ children }) => {
+  const { user, isAuthenticated } = useAuth();
+
+  if (isAuthenticated && user) {
+    return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/app/dashboard'} replace />;
+  }
+
+  return children;
+};
+
+// Root route handler
+const RootRedirect = () => {
+  const { user, isAuthenticated } = useAuth();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/app/dashboard'} replace />;
+};
+
 export const AppRoutes = () => {
   return (
     <Routes>
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="/" element={<RootRedirect />} />
 
       {/* Auth Routes */}
-      <Route path="/auth/login" element={<Login />} />
-      <Route path="/auth/register" element={<Register />} />
+      <Route
+        path="/auth/login"
+        element={
+          <PublicAuthRoute>
+            <Login />
+          </PublicAuthRoute>
+        }
+      />
+      <Route
+        path="/auth/register"
+        element={
+          <PublicAuthRoute>
+            <Register />
+          </PublicAuthRoute>
+        }
+      />
       <Route path="/auth/forgot-password" element={<ForgotPassword />} />
       <Route path="/auth/reset-password" element={<ResetPassword />} />
 
-      {/* User Affiliate Portal Shell */}
-      <Route path="/app" element={<UserLayout />}>
+      {/* Referral Link Entry Routes - Open popup directly */}
+      <Route path="/join" element={<JoinReferral />} />
+      <Route path="/p/:id" element={<JoinReferral />} />
+      <Route path="/ref/:code" element={<JoinReferral />} />
+
+      {/* User Affiliate Portal Shell (Protected) */}
+      <Route
+        path="/app"
+        element={
+          <ProtectedRoute>
+            <UserLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="dashboard" element={<UserDashboard />} />
         <Route path="marketplace" element={<UserMarketplace />} />
         <Route path="product/:id" element={<UserProductDetails />} />
@@ -71,8 +136,15 @@ export const AppRoutes = () => {
         <Route index element={<Navigate to="dashboard" replace />} />
       </Route>
 
-      {/* Enterprise Admin Portal Shell */}
-      <Route path="/admin" element={<AdminLayout />}>
+      {/* Enterprise Admin Portal Shell (Protected) */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="products" element={<AdminProducts />} />
@@ -93,7 +165,7 @@ export const AppRoutes = () => {
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="*" element={<RootRedirect />} />
     </Routes>
   );
 };

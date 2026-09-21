@@ -1,217 +1,291 @@
 import axios from 'axios';
-import {
-  INITIAL_USER_STATS,
-  INITIAL_TARGET,
-  INITIAL_PRODUCTS,
-  INITIAL_TRANSACTIONS,
-  INITIAL_WITHDRAWALS,
-  INITIAL_REFERRALS,
-  INITIAL_NOTIFICATIONS,
-  INITIAL_ADMIN_STATS,
-  INITIAL_ADMIN_USERS,
-  INITIAL_FRAUD_LOGS,
-  INITIAL_AUDIT_LOGS,
-  PERFORMANCE_CHART_DATA
-} from './mockData';
 
-// Central Axios Instance
+// Central Axios Instance with dynamic token attachment
 export const apiClient = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
-// In-Memory Reactive Store for Client-Side Demo Mutability
-let store = {
-  userStats: { ...INITIAL_USER_STATS },
-  target: { ...INITIAL_TARGET },
-  products: [...INITIAL_PRODUCTS],
-  transactions: [...INITIAL_TRANSACTIONS],
-  withdrawals: [...INITIAL_WITHDRAWALS],
-  referrals: [...INITIAL_REFERRALS],
-  notifications: [...INITIAL_NOTIFICATIONS],
-  adminStats: { ...INITIAL_ADMIN_STATS },
-  adminUsers: [...INITIAL_ADMIN_USERS],
-  fraudLogs: [...INITIAL_FRAUD_LOGS],
-  auditLogs: [...INITIAL_AUDIT_LOGS],
-};
+// Request interceptor to attach Bearer token and user identity headers
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('referearn_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  const userStr = localStorage.getItem('referearn_user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user.id) config.headers['X-User-Id'] = user.id;
+      if (user.email) config.headers['X-User-Email'] = user.email;
+    } catch (e) {}
+  }
+  return config;
+});
 
-const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
+// Response interceptor for unified response data extraction
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      'An unexpected error occurred';
+    return Promise.reject(new Error(message));
+  }
+);
 
 export const affiliateApi = {
-  // User Portal Services
-  getUserStats: async () => {
-    await delay();
-    return { ...store.userStats };
-  },
-
-  getTarget: async () => {
-    await delay();
-    return { ...store.target };
-  },
-
-  getProducts: async (filters = {}) => {
-    await delay();
-    let result = [...store.products];
-    if (filters.category && filters.category !== 'All') {
-      result = result.filter((p) => p.category === filters.category);
+  // Auth Services
+  login: async ({ email, password }) => {
+    const res = await apiClient.post('/auth/login', { email, password });
+    if (res.data.token) {
+      localStorage.setItem('referearn_token', res.data.token);
     }
-    if (filters.search) {
-      const query = filters.search.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query)
-      );
+    return res.data;
+  },
+
+  register: async (userData) => {
+    const res = await apiClient.post('/auth/register', userData);
+    if (res.data.token) {
+      localStorage.setItem('referearn_token', res.data.token);
     }
-    if (filters.sortBy === 'commission') {
-      result.sort((a, b) => b.commissionValue - a.commissionValue);
-    } else if (filters.sortBy === 'price') {
-      result.sort((a, b) => b.price - a.price);
-    } else if (filters.sortBy === 'popularity') {
-      result.sort((a, b) => b.conversions - a.conversions);
+    return res.data;
+  },
+
+  getMe: async () => {
+    const res = await apiClient.get('/auth/me');
+    return res.data;
+  },
+
+  updateProfile: async (profileData) => {
+    const res = await apiClient.put('/auth/profile', profileData);
+    return res.data;
+  },
+
+  logout: async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } finally {
+      localStorage.removeItem('referearn_token');
     }
-    return result;
-  },
-
-  getProductById: async (id) => {
-    await delay();
-    const prod = store.products.find((p) => p.id === id);
-    if (!prod) throw new Error('Product not found');
-    return prod;
-  },
-
-  getTransactions: async (filters = {}) => {
-    await delay();
-    let result = [...store.transactions];
-    if (filters.status && filters.status !== 'All') {
-      result = result.filter((t) => t.status === filters.status);
-    }
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.product.toLowerCase().includes(q) ||
-          t.buyer.toLowerCase().includes(q) ||
-          t.id.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  },
-
-  getWithdrawals: async () => {
-    await delay();
-    return [...store.withdrawals];
-  },
-
-  requestWithdrawal: async ({ amount, method, destination }) => {
-    await delay(350);
-    if (amount > store.userStats.availableBalance) {
-      throw new Error('Requested amount exceeds available balance.');
-    }
-    if (amount < 500) {
-      throw new Error('Minimum withdrawal threshold is ₹500.00');
-    }
-
-    const newWd = {
-      id: `wd-${Date.now().toString().slice(-4)}`,
-      requestedAt: new Date().toISOString(),
-      amount: parseFloat(amount),
-      method,
-      destination,
-      status: 'Pending',
-      reference: `${method.toUpperCase().slice(0, 3)}/${Math.floor(100000000 + Math.random() * 900000000)}`,
-    };
-
-    // Deduct from available balance
-    store.userStats.availableBalance -= parseFloat(amount);
-    store.userStats.pendingEarnings += parseFloat(amount);
-    store.withdrawals.unshift(newWd);
-
-    // Add notification
-    store.notifications.unshift({
-      id: `notif-${Date.now()}`,
-      title: 'Withdrawal Requested',
-      message: `Withdrawal request of ₹${amount.toFixed(2)} is pending approval.`,
-      type: 'withdrawal',
-      date: new Date().toISOString(),
-      read: false,
-    });
-
-    return newWd;
-  },
-
-  getReferrals: async () => {
-    await delay();
-    return [...store.referrals];
-  },
-
-  generateReferralLink: async ({ productId, campaignCode, utmSource }) => {
-    await delay(200);
-    const prod = store.products.find((p) => p.id === productId);
-    const code = campaignCode || 'REF-USER-9841';
-    const link = `https://referearn.io/p/${productId}?ref=${code}&utm_source=${utmSource || 'direct'}`;
-    return { link, referralCode: code, product: prod?.name || 'General Platform' };
-  },
-
-  getNotifications: async () => {
-    await delay();
-    return [...store.notifications];
-  },
-
-  markNotificationsRead: async () => {
-    await delay(150);
-    store.notifications = store.notifications.map((n) => ({ ...n, read: true }));
     return true;
   },
 
+  // User Portal Services
+  getUserStats: async () => {
+    const res = await apiClient.get('/user/stats');
+    return res.data;
+  },
+
+  getTarget: async () => {
+    const res = await apiClient.get('/targets');
+    return res.data;
+  },
+
+  getAllTargets: async () => {
+    const res = await apiClient.get('/targets/all');
+    return res.data;
+  },
+
+  getProducts: async (filters = {}) => {
+    const params = {};
+    if (filters.category && filters.category !== 'All') params.category = filters.category;
+    if (filters.search) params.search = filters.search;
+    if (filters.sortBy) params.sortBy = filters.sortBy;
+
+    const res = await apiClient.get('/products', { params });
+    return res.data;
+  },
+
+  getProductById: async (id) => {
+    const res = await apiClient.get(`/products/${id}`);
+    return res.data;
+  },
+
+  createProduct: async (productData) => {
+    const res = await apiClient.post('/products', productData);
+    return res.data;
+  },
+
+  updateProduct: async (id, productData) => {
+    const res = await apiClient.put(`/products/${id}`, productData);
+    return res.data;
+  },
+
+  deleteProduct: async (id) => {
+    const res = await apiClient.delete(`/products/${id}`);
+    return res.data;
+  },
+
+  // Categories
+  getCategories: async () => {
+    const res = await apiClient.get('/categories');
+    return res.data;
+  },
+
+  createCategory: async (categoryData) => {
+    const res = await apiClient.post('/categories', categoryData);
+    return res.data;
+  },
+
+  deleteCategory: async (id) => {
+    const res = await apiClient.delete(`/categories/${id}`);
+    return res.data;
+  },
+
+  // Transactions / Earnings / Commissions
+  getTransactions: async (filters = {}) => {
+    const params = {};
+    if (filters.status && filters.status !== 'All') params.status = filters.status;
+    if (filters.search) params.search = filters.search;
+
+    const res = await apiClient.get('/transactions', { params });
+    return res.data;
+  },
+
+  updateTransactionStatus: async (id, status) => {
+    const res = await apiClient.put(`/transactions/${id}/status`, { status });
+    return res.data;
+  },
+
+  // Withdrawals & Payouts
+  getWithdrawals: async () => {
+    const res = await apiClient.get('/withdrawals');
+    return res.data;
+  },
+
+  requestWithdrawal: async ({ amount, method, destination }) => {
+    const res = await apiClient.post('/withdrawals/request', {
+      amount,
+      method,
+      destination,
+    });
+    return res.data.withdrawal;
+  },
+
+  approveWithdrawal: async (id) => {
+    const res = await apiClient.put(`/withdrawals/${id}/approve`);
+    return res.data;
+  },
+
+  batchApproveWithdrawals: async () => {
+    const res = await apiClient.post('/withdrawals/batch-approve');
+    return res.data;
+  },
+
+  // Referrals
+  getReferrals: async () => {
+    const res = await apiClient.get('/referrals');
+    return res.data;
+  },
+
+  updateReferralStatus: async (id, status) => {
+    const res = await apiClient.put(`/referrals/${id}/status`, { status });
+    return res.data;
+  },
+
+  generateReferralLink: async ({ productId, campaignCode, utmSource }) => {
+    const res = await apiClient.post('/referrals/generate-link', {
+      productId,
+      campaignCode,
+      utmSource,
+    });
+    return res.data;
+  },
+
+  trackClick: async (productId) => {
+    const res = await apiClient.post('/referrals/track-click', { productId });
+    return res.data;
+  },
+
+  // Campaigns
+  getCampaigns: async () => {
+    const res = await apiClient.get('/campaigns');
+    return res.data;
+  },
+
+  createCampaign: async (campaignData) => {
+    const res = await apiClient.post('/campaigns', campaignData);
+    return res.data;
+  },
+
+  // Notifications
+  getNotifications: async () => {
+    const res = await apiClient.get('/notifications');
+    return res.data;
+  },
+
+  markNotificationsRead: async () => {
+    const res = await apiClient.post('/notifications/mark-read');
+    return res.data;
+  },
+
+  broadcastNotification: async ({ title, message, audience }) => {
+    const res = await apiClient.post('/notifications/broadcast', {
+      title,
+      message,
+      audience,
+    });
+    return res.data;
+  },
+
   getChartData: async () => {
-    await delay();
-    return PERFORMANCE_CHART_DATA;
+    const res = await apiClient.get('/charts/performance');
+    return res.data;
   },
 
   // Admin Portal Services
   getAdminStats: async () => {
-    await delay();
-    return { ...store.adminStats };
+    const res = await apiClient.get('/admin/stats');
+    return res.data;
   },
 
-  getAdminUsers: async () => {
-    await delay();
-    return [...store.adminUsers];
+  getAdminUsers: async (filters = {}) => {
+    const params = {};
+    if (filters.status && filters.status !== 'All') params.status = filters.status;
+    if (filters.search) params.search = filters.search;
+
+    const res = await apiClient.get('/admin/users', { params });
+    return res.data;
   },
 
   toggleUserStatus: async (userId) => {
-    await delay(200);
-    store.adminUsers = store.adminUsers.map((u) => {
-      if (u.id === userId) {
-        const nextStatus = u.status === 'Active' ? 'Suspended' : 'Active';
-        return { ...u, status: nextStatus };
-      }
-      return u;
-    });
+    const res = await apiClient.post(`/admin/users/${userId}/toggle-status`);
+    return res.data;
+  },
 
-    store.auditLogs.unshift({
-      id: `aud-${Date.now().toString().slice(-4)}`,
-      admin: 'Operations Admin',
-      action: 'Toggled User Status',
-      details: `User ${userId} status changed.`,
-      timestamp: new Date().toISOString(),
-      ip: '127.0.0.1',
-    });
-
-    return true;
+  updateUserTier: async (userId, tier) => {
+    const res = await apiClient.post(`/admin/users/${userId}/tier`, { tier });
+    return res.data;
   },
 
   getFraudLogs: async () => {
-    await delay();
-    return [...store.fraudLogs];
+    const res = await apiClient.get('/admin/fraud-logs');
+    return res.data;
+  },
+
+  updateFraudStatus: async (id, status) => {
+    const res = await apiClient.put(`/admin/fraud-logs/${id}/status`, { status });
+    return res.data;
   },
 
   getAuditLogs: async () => {
-    await delay();
-    return [...store.auditLogs];
+    const res = await apiClient.get('/admin/audit-logs');
+    return res.data;
+  },
+
+  getSettings: async () => {
+    const res = await apiClient.get('/admin/settings');
+    return res.data;
+  },
+
+  updateSettings: async (settingsData) => {
+    const res = await apiClient.post('/admin/settings', settingsData);
+    return res.data;
   },
 };

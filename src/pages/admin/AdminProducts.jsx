@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { affiliateApi } from '../../services/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -11,24 +11,53 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { formatCurrency } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
-import { Plus, Edit, Package } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 
 export const AdminProducts = () => {
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [prodName, setProdName] = useState('');
+  const [prodCategory, setProdCategory] = useState('Cloud');
   const [prodPrice, setProdPrice] = useState('4999');
   const [commissionRate, setCommissionRate] = useState('20%');
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => affiliateApi.getProducts(),
   });
 
+  const createMutation = useMutation({
+    mutationFn: affiliateApi.createProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      addToast({ title: 'Product Added', message: `${prodName} added to marketplace catalog.`, type: 'success' });
+      setIsModalOpen(false);
+      setProdName('');
+      setProdPrice('4999');
+    },
+    onError: (err) => {
+      addToast({ title: 'Creation Failed', message: err.message, type: 'error' });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: affiliateApi.deleteProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      addToast({ title: 'Product Removed', message: 'Product removed from marketplace.', type: 'info' });
+    }
+  });
+
   const handleAddProduct = (e) => {
     e.preventDefault();
-    addToast({ title: 'Product Added', message: `${prodName} added to marketplace catalog.`, type: 'success' });
-    setIsModalOpen(false);
+    createMutation.mutate({
+      name: prodName,
+      category: prodCategory,
+      price: parseFloat(prodPrice),
+      commission: commissionRate,
+      commission_type: commissionRate.includes('%') ? 'Percentage' : 'Flat Rate',
+    });
   };
 
   return (
@@ -57,9 +86,20 @@ export const AdminProducts = () => {
                 <Badge variant="success" dot>{p.status}</Badge>
               </TableCell>
               <TableCell>
-                <Button variant="outline" size="sm" icon={Edit}>
-                  Edit Rules
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" icon={Edit}>
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-rose-600 hover:text-rose-700"
+                    onClick={() => deleteMutation.mutate(p.id)}
+                    icon={Trash2}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -96,14 +136,17 @@ export const AdminProducts = () => {
           />
           <Select
             label="Product Category"
+            value={prodCategory}
+            onChange={(e) => setProdCategory(e.target.value)}
             options={[
               { value: 'Cloud', label: 'Cloud Infrastructure' },
               { value: 'Fintech', label: 'Fintech & Payment APIs' },
               { value: 'Software', label: 'SaaS Software' },
               { value: 'Developer Tools', label: 'Developer Tools' },
+              { value: 'Marketing', label: 'Marketing & Growth' },
             ]}
           />
-          <Button variant="primary" type="submit" className="w-full">
+          <Button variant="primary" type="submit" isLoading={createMutation.isPending} className="w-full">
             Save Product to Marketplace
           </Button>
         </form>

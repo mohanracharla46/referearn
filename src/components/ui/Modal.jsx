@@ -12,11 +12,12 @@ export const Modal = ({
   subtitle,
   children,
   footer,
+  showCloseButton = true,
   maxWidth = 'max-w-lg',
 }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isOpen && showCloseButton && onClose) {
         onClose();
       }
     };
@@ -28,7 +29,7 @@ export const Modal = ({
       document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showCloseButton]);
 
   if (!isOpen) return null;
 
@@ -48,13 +49,15 @@ export const Modal = ({
             {title && <h3 className="text-base font-semibold text-zinc-900">{title}</h3>}
             {subtitle && <p className="text-xs text-zinc-500 mt-0.5">{subtitle}</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-md transition-subtle"
-            aria-label="Close modal"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {showCloseButton && onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-md transition-subtle"
+              aria-label="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Modal Content */}

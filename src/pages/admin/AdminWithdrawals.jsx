@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { affiliateApi } from '../../services/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Table, TableRow, TableCell } from '../../components/ui/Table';
@@ -9,24 +11,42 @@ import { useToast } from '../../context/ToastContext';
 import { ArrowUpRight, CheckCircle2 } from 'lucide-react';
 
 export const AdminWithdrawals = () => {
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [withdrawals, setWithdrawals] = useState([
-    { id: 'wd-805', requestedAt: '2026-09-18T16:00:00Z', affiliate: 'Kishore Kumar', amount: 2500.0, method: 'UPI Instant Payout', destination: 'kishore@okaxis', status: 'Pending Approval' },
-    { id: 'wd-801', requestedAt: '2026-09-15T10:00:00Z', affiliate: 'Aditya Rao', amount: 15000.0, method: 'HDFC IMPS', destination: 'HDFC0001234 •••• 9841', status: 'Completed' },
-    { id: 'wd-802', requestedAt: '2026-09-01T14:30:00Z', affiliate: 'Sneha Kulkarni', amount: 10000.0, method: 'UPI Payout', destination: 'sneha@okicici', status: 'Completed' },
-  ]);
 
-  const handleApprovePayout = (id) => {
-    setWithdrawals((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, status: 'Completed' } : w))
-    );
-    addToast({ title: 'Payout Processed', message: `Withdrawal ${id} executed via gateway API.`, type: 'success' });
-  };
+  const { data: withdrawals = [], isLoading } = useQuery({
+    queryKey: ['adminWithdrawals'],
+    queryFn: affiliateApi.getWithdrawals,
+  });
 
-  const handleBatchExecution = () => {
-    setWithdrawals((prev) => prev.map((w) => ({ ...w, status: 'Completed' })));
-    addToast({ title: 'Batch Payout Executed', message: 'All pending withdrawal payouts dispatched.', type: 'success' });
-  };
+  const approveMutation = useMutation({
+    mutationFn: (id) => {
+      const dbId = typeof id === 'string' && id.startsWith('wd-') ? parseInt(id.replace('wd-', '')) : id;
+      return affiliateApi.approveWithdrawal(dbId);
+    },
+    onSuccess: (data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['adminWithdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      addToast({ title: 'Payout Processed', message: `Withdrawal ${id} approved & funds disbursed via gateway API.`, type: 'success' });
+    },
+    onError: (err) => {
+      addToast({ title: 'Approval Failed', message: err.message, type: 'error' });
+    }
+  });
+
+  const batchMutation = useMutation({
+    mutationFn: affiliateApi.batchApproveWithdrawals,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['adminWithdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      addToast({ title: 'Batch Payout Executed', message: res.message || 'All pending withdrawal payouts dispatched.', type: 'success' });
+    },
+    onError: (err) => {
+      addToast({ title: 'Batch Payout Failed', message: err.message, type: 'error' });
+    }
+  });
+
+  const hasPending = withdrawals.some((w) => w.status === 'Pending Approval' || w.status === 'Pending');
 
   return (
     <div className="space-y-6">
@@ -34,7 +54,15 @@ export const AdminWithdrawals = () => {
         title="Payout Execution & Disbursal Queue"
         subtitle="Process pending affiliate withdrawal requests, trigger gateway disbursals, and handle bank IMPS queues."
         actions={
-          <Button variant="primary" size="sm" onClick={handleBatchExecution} icon={ArrowUpRight} className="w-full sm:w-auto text-xs font-bold">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => batchMutation.mutate()}
+            isLoading={batchMutation.isPending}
+            disabled={!hasPending}
+            icon={ArrowUpRight}
+            className="w-full sm:w-auto text-xs font-bold"
+          >
             Execute Pending Batch Disbursal
           </Button>
         }
@@ -58,8 +86,14 @@ export const AdminWithdrawals = () => {
                 </Badge>
               </TableCell>
               <TableCell className="whitespace-nowrap">
-                {wd.status === 'Pending Approval' && (
-                  <Button variant="primary" size="sm" onClick={() => handleApprovePayout(wd.id)} className="text-xs font-semibold">
+                {(wd.status === 'Pending Approval' || wd.status === 'Pending') && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => approveMutation.mutate(wd.db_id || wd.id)}
+                    isLoading={approveMutation.isPending}
+                    className="text-xs font-semibold"
+                  >
                     Approve & Disburse
                   </Button>
                 )}

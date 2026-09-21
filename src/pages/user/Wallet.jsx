@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { affiliateApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatCard } from '../../components/ui/StatCard';
 import { Card } from '../../components/ui/Card';
@@ -12,17 +13,23 @@ import { QuickWithdrawalModal } from '../../components/common/QuickWithdrawalMod
 import { Wallet as WalletIcon, Clock, Lock, ArrowUpRight, ShieldCheck, CreditCard } from 'lucide-react';
 
 export const UserWallet = () => {
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: stats } = useQuery({
-    queryKey: ['userStats'],
+    queryKey: ['userStats', user?.email],
     queryFn: affiliateApi.getUserStats,
+    refetchInterval: 3000,
   });
 
   const { data: withdrawals = [] } = useQuery({
-    queryKey: ['withdrawals'],
+    queryKey: ['withdrawals', user?.email],
     queryFn: affiliateApi.getWithdrawals,
+    refetchInterval: 5000,
   });
+
+  const upiHandle = user?.upi_id || user?.upiId || stats?.upi_id || 'Not configured (UPI)';
+  const bankDetails = user?.bank_account || user?.bankAccount || stats?.bank_account || 'Not configured (Bank)';
 
   return (
     <div className="space-y-6">
@@ -40,19 +47,19 @@ export const UserWallet = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           title="Available Balance"
-          value={stats?.availableBalance}
+          value={stats?.availableBalance ?? 0}
           subtitle="Ready for instant payout"
           icon={WalletIcon}
         />
         <StatCard
           title="Pending Balance"
-          value={stats?.pendingEarnings}
+          value={stats?.pendingEarnings ?? 0}
           subtitle="Clearance in progress"
           icon={Clock}
         />
         <StatCard
           title="Locked Security Hold"
-          value={stats?.lockedBalance || 1000.0}
+          value={stats?.lockedBalance ?? 0}
           subtitle="Standard security reserve"
           icon={Lock}
         />
@@ -66,7 +73,7 @@ export const UserWallet = () => {
               <span className="text-[10px] font-mono uppercase font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 DEFAULT UPI
               </span>
-              <h4 className="text-sm font-bold text-zinc-900 pt-1">kishore@okaxis</h4>
+              <h4 className="text-sm font-bold text-zinc-900 pt-1">{upiHandle}</h4>
               <p className="text-xs text-zinc-500">Google Pay / PhonePe VPA</p>
             </div>
             <ShieldCheck className="w-5 h-5 text-emerald-600" />
@@ -77,7 +84,7 @@ export const UserWallet = () => {
               <span className="text-[10px] font-mono uppercase font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
                 SAVINGS BANK
               </span>
-              <h4 className="text-sm font-bold text-zinc-900 pt-1">HDFC Bank •••• 4092</h4>
+              <h4 className="text-sm font-bold text-zinc-900 pt-1">{bankDetails}</h4>
               <p className="text-xs text-zinc-500">IMPS / NEFT Transfer</p>
             </div>
             <CreditCard className="w-5 h-5 text-zinc-500" />
@@ -110,7 +117,7 @@ export const UserWallet = () => {
       <QuickWithdrawalModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        availableBalance={stats?.availableBalance || 7500.0}
+        availableBalance={stats?.availableBalance ?? 0}
       />
     </div>
   );

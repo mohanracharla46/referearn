@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { affiliateApi } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
 import { Landmark, ArrowUpRight, ShieldCheck } from 'lucide-react';
 
-export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 7500.00, onSuccess }) => {
+export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 0, onSuccess }) => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [amount, setAmount] = useState('2500');
+  const [amount, setAmount] = useState('10');
   const [method, setMethod] = useState('UPI Instant Payout');
-  const [destination, setDestination] = useState('kishore@okaxis');
+  const [destination, setDestination] = useState(user?.upi_id || user?.upiId || '');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user?.upi_id || user?.upiId) {
+      setDestination(user.upi_id || user.upiId);
+    }
+  }, [user]);
 
   const handleWithdraw = async (e) => {
     e.preventDefault();
@@ -23,8 +33,8 @@ export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 7500.
       addToast({ title: 'Invalid Amount', message: 'Please enter a valid numeric amount.', type: 'error' });
       return;
     }
-    if (numAmount < 500) {
-      addToast({ title: 'Minimum Threshold', message: 'Minimum withdrawal amount is ₹500.00', type: 'warning' });
+    if (numAmount < 10) {
+      addToast({ title: 'Minimum Threshold', message: 'Minimum withdrawal amount is ₹10.00', type: 'warning' });
       return;
     }
     if (numAmount > availableBalance) {
@@ -39,6 +49,10 @@ export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 7500.
         method,
         destination,
       });
+
+      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+      queryClient.invalidateQueries({ queryKey: ['withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
       addToast({
         title: 'Payout Request Submitted',
@@ -79,7 +93,7 @@ export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 7500.
           prefix="₹"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          helperText="Minimum withdrawal: ₹500.00"
+          helperText="Minimum withdrawal: ₹10.00"
           required
         />
 

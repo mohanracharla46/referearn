@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { affiliateApi } from '../services/api';
 import { NotificationPopover } from '../components/common/NotificationPopover';
 import { QuickWithdrawalModal } from '../components/common/QuickWithdrawalModal';
-import { LinkGeneratorModal } from '../components/common/LinkGeneratorModal';
 import { UserOnboardingModal } from '../components/common/UserOnboardingModal';
 import { ToastContainer } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
@@ -38,16 +37,28 @@ export const UserLayout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
 
   const { data: stats } = useQuery({
-    queryKey: ['userStats'],
+    queryKey: ['userStats', user?.email],
     queryFn: affiliateApi.getUserStats,
+    refetchInterval: 3000,
   });
 
   const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', user?.email],
     queryFn: affiliateApi.getNotifications,
+    refetchInterval: 5000,
   });
 
   const markReadMutation = useMutation({
@@ -80,9 +91,9 @@ export const UserLayout = () => {
   return (
     <div className="min-h-screen bg-zinc-100/90 flex flex-col font-sans text-zinc-950">
       {/* Top Banner Ticker & Switcher */}
-      <div className="bg-zinc-950 text-white text-xs px-4 py-2 flex items-center justify-between border-b border-zinc-800 sticky top-0 z-40">
-        <div className="flex items-center gap-2 font-medium">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+      <div className="bg-zinc-950 text-white text-xs px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-zinc-800 sticky top-0 z-40">
+        <div className="flex items-center gap-2 font-medium text-center sm:text-left">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="font-bold tracking-tight">REFEREARN PLATFORM</span>
           <span className="hidden sm:inline text-zinc-400">| Affiliate Publisher Workspace</span>
         </div>
@@ -241,7 +252,7 @@ export const UserLayout = () => {
                 Cleared Balance
               </span>
               <span className="financial-num text-lg font-black text-zinc-950 block">
-                {formatCurrency(stats?.availableBalance || 7500.0)}
+                {formatCurrency(stats?.availableBalance ?? user?.available_balance ?? 0)}
               </span>
               <Button
                 variant="primary"
@@ -254,11 +265,11 @@ export const UserLayout = () => {
             </div>
 
             <button
-              onClick={() => {
-                logout();
-                navigate('/auth/login');
+              onClick={async () => {
+                await logout();
+                navigate('/auth/login', { replace: true });
               }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold text-zinc-700 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-subtle mt-2"
+              className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold text-zinc-700 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-subtle mt-2 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout Account</span>
@@ -273,17 +284,18 @@ export const UserLayout = () => {
               className="fixed inset-0 bg-black/60 backdrop-blur-xs"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="relative w-72 bg-white h-full border-r border-zinc-200 flex flex-col p-4 z-50 animate-in slide-in-from-left duration-150">
-              <div className="flex items-center justify-between pb-4 mb-4 border-b border-zinc-200">
+            <div className="relative w-72 max-w-[85vw] bg-white h-[100dvh] max-h-screen border-r border-zinc-200 flex flex-col p-4 z-50 overflow-hidden animate-in slide-in-from-left duration-150">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-zinc-200 shrink-0">
                 <span className="font-extrabold text-base text-zinc-950">ReferEarn Menu</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-md text-zinc-500 hover:bg-zinc-100"
+                  className="p-1.5 rounded-md text-zinc-500 hover:bg-zinc-100 cursor-pointer"
+                  aria-label="Close menu"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <nav className="flex-1 space-y-1 overflow-y-auto">
+              <nav className="flex-1 space-y-1 overflow-y-auto min-h-0 pr-1 select-none">
                 {[...mainNavItems, ...financialNavItems, ...accountNavItems].map((item) => (
                   <NavLink
                     key={item.path}
@@ -297,11 +309,49 @@ export const UserLayout = () => {
                       }`
                     }
                   >
-                    <item.icon className="w-4 h-4" />
+                    <item.icon className="w-4 h-4 shrink-0" />
                     <span>{item.label}</span>
                   </NavLink>
                 ))}
               </nav>
+
+              {/* Mobile Drawer Footer: User Profile & Logout Button */}
+              <div className="pt-3 mt-3 border-t border-zinc-200 shrink-0 space-y-2">
+                <div className="flex items-center gap-2.5 p-2 bg-zinc-50 rounded-md border border-zinc-200">
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user?.name || 'Publisher'}
+                      className="w-8 h-8 rounded-full border border-zinc-300 object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold font-mono border border-zinc-800 shrink-0">
+                      {user?.name ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : 'PU'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-zinc-950 block truncate">
+                      {user?.name || 'Publisher'}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono font-semibold block truncate">
+                      {user?.tier || 'Standard Tier'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    await logout();
+                    navigate('/auth/login', { replace: true });
+                  }}
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-md text-xs font-bold transition-subtle cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout Account</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -319,15 +369,6 @@ export const UserLayout = () => {
               </button>
 
               <div className="hidden sm:flex items-center gap-2.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsLinkModalOpen(true)}
-                  icon={Sparkles}
-                  className="text-xs font-semibold"
-                >
-                  Generate Link
-                </Button>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -350,17 +391,23 @@ export const UserLayout = () => {
               <div className="h-4 w-px bg-zinc-200" />
 
               <div className="flex items-center gap-2.5 pl-1">
-                <img
-                  src={user?.avatar}
-                  alt={user?.name}
-                  className="w-8 h-8 rounded-full border border-zinc-300 object-cover"
-                />
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user?.name || 'Publisher'}
+                    className="w-8 h-8 rounded-full border border-zinc-300 object-cover shrink-0 shadow-2xs"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold font-mono border border-zinc-800 shrink-0 shadow-2xs">
+                    {user?.name ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : 'PU'}
+                  </div>
+                )}
                 <div className="hidden sm:block text-left">
                   <span className="text-xs font-bold text-zinc-950 block leading-tight">
-                    {user?.name}
+                    {user?.name || 'Publisher'}
                   </span>
                   <span className="text-[10px] text-zinc-500 font-mono font-semibold block">
-                    {user?.tier}
+                    {user?.tier || 'Standard Affiliate'}
                   </span>
                 </div>
               </div>
@@ -378,12 +425,8 @@ export const UserLayout = () => {
       <QuickWithdrawalModal
         isOpen={isWithdrawModalOpen}
         onClose={() => setIsWithdrawModalOpen(false)}
-        availableBalance={stats?.availableBalance || 7500.0}
+        availableBalance={stats?.availableBalance ?? user?.available_balance ?? 0}
         onSuccess={() => queryClient.invalidateQueries()}
-      />
-      <LinkGeneratorModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
       />
       <UserOnboardingModal />
 
