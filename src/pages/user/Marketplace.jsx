@@ -39,19 +39,14 @@ export const UserMarketplace = () => {
   const refCode = user?.referral_code || user?.referralCode || 'REF-KISHORE-2026';
 
   const handleWhatsAppShare = (prod) => {
-    const trackedUrl = `https://referearn.io/p/${prod.id}?ref=${refCode}&utm_source=whatsapp`;
-    const message = `Check out ${prod.name}! Earn up to ${prod.commission} commission: ${trackedUrl}`;
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, '_blank');
-    addToast({
-      title: 'WhatsApp Share Opened',
-      message: `Sharing link for ${prod.name} on WhatsApp.`,
-      type: 'success',
-    });
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referitup.com';
+    const trackedUrl = `${origin}/p/${prod.id}?ref=${refCode}&utm_source=whatsapp`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`Check out ${prod.name} on Referitup! ${trackedUrl}`)}`, '_blank');
   };
 
   const handleQuickShare = (prod) => {
-    const trackedUrl = `https://referearn.io/p/${prod.id}?ref=${refCode}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referitup.com';
+    const trackedUrl = `${origin}/p/${prod.id}?ref=${refCode}`;
     if (navigator.share) {
       navigator
         .share({
@@ -167,20 +162,12 @@ export const UserMarketplace = () => {
                     {prod.description}
                   </p>
 
-                  <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200 space-y-1 my-3">
+                  <div className="p-3 bg-emerald-50/80 rounded-md border border-emerald-200/90 space-y-1 my-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-500 font-medium">Price:</span>
-                      <span className="font-semibold text-zinc-900">{formatCurrency(prod.price)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-500 font-medium">Commission Rate:</span>
-                      <span className="font-bold text-zinc-950 font-mono text-sm">
-                        {prod.commission} ({formatCurrency(prod.commissionValue)})
+                      <span className="text-emerald-900 font-bold uppercase tracking-wider text-[11px]">Refer & Earn Money:</span>
+                      <span className="font-extrabold text-emerald-700 font-mono text-base">
+                        {prod.commission ? (prod.commission.startsWith('₹') ? prod.commission : `₹${prod.commission}`) : formatCurrency(prod.price)}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono pt-1 border-t border-zinc-200">
-                      <span>Type: {prod.commissionType}</span>
-                      <span className="text-emerald-700 font-semibold">{prod.status} Campaign</span>
                     </div>
                   </div>
                 </div>

@@ -1,0 +1,48 @@
+{
+  "name": "ReferItUp - Refer & Earn Platform",
+  "short_name": "ReferItUp",
+  "description": "Promote top SaaS products, track clicks, and earn affiliate payouts on ReferItUp.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#09090b",
+  "categories": ["finance", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png?v=3",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-512x512.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Marketplace",
+      "short_name": "Marketplace",
+      "description": "Browse promotional products",
+      "url": "/app/marketplace",
+      "icons": [{ "src": "/pwa-192x192.png?v=3", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View earnings and stats",
+      "url": "/app/dashboard",
+      "icons": [{ "src": "/pwa-192x192.png?v=3", "sizes": "192x192" }]
+    }
+  ]
+}

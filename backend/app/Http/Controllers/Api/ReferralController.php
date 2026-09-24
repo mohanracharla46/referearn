@@ -20,13 +20,16 @@ class ReferralController extends Controller
             return response()->json([]);
         }
 
-        $query = Referral::query();
+        $query = Referral::with('user');
 
         if ($user->role !== 'admin') {
             $query->where('user_id', $user->id);
         }
 
         $referrals = $query->orderBy('id', 'desc')->get()->map(function ($r) {
+            $referrerName = $r->user ? $r->user->name : 'User A';
+            $referrerEmail = $r->user ? $r->user->email : '';
+
             return [
                 'id' => 'ref-' . $r->id,
                 'db_id' => $r->id,
@@ -36,7 +39,12 @@ class ReferralController extends Controller
                 'product' => $r->product ?? 'General Platform',
                 'clicks' => (int) $r->clicks,
                 'status' => $r->status,
+                'rejection_reason' => $r->rejection_reason,
                 'totalEarned' => (float) $r->total_earned,
+                'referrer_id' => $r->user_id,
+                'referrer_name' => $referrerName,
+                'referrer_email' => $referrerEmail,
+                'referred_by' => "Referred by {$referrerName}",
             ];
         });
 
@@ -58,8 +66,8 @@ class ReferralController extends Controller
 
         $dbId = str_starts_with($productId, 'prod-') ? (int) substr($productId, 5) : (int) $productId;
         $prod = Product::find($dbId);
-
-        $link = "https://referearn.io/p/{$productId}?ref={$code}&utm_source={$utmSource}";
+        $origin = $request->header('Origin') ?: ($request->getSchemeAndHttpHost() ?: 'http://localhost:5173');
+        $link = "{$origin}/p/{$productId}?ref={$code}&utm_source={$utmSource}";
 
         return response()->json([
             'link' => $link,
@@ -83,24 +91,33 @@ class ReferralController extends Controller
     {
         $validated = $request->validate([
             'status' => 'required|string',
+            'rejection_reason' => 'nullable|string',
+            'rejectionReason' => 'nullable|string',
         ]);
 
         $referral = Referral::findOrFail($id);
         $oldStatus = $referral->status;
         $newStatus = $validated['status'];
+        $rejectionReason = $validated['rejection_reason'] ?? $validated['rejectionReason'] ?? null;
 
         $referral->status = $newStatus;
         if (str_contains($newStatus, 'Converted') || str_contains($newStatus, 'Approved')) {
             $referral->total_earned = 10.00;
-        } elseif (str_contains($newStatus, 'Rejected') || str_contains($newStatus, 'Reversed')) {
+            $referral->rejection_reason = null;
+        } elseif (str_contains($newStatus, 'Rejected') || str_contains($newStatus, 'Reversed') || str_contains($newStatus, 'Declined')) {
             $referral->total_earned = 0.00;
+            if ($rejectionReason) {
+                $referral->rejection_reason = $rejectionReason;
+            }
         }
         $referral->save();
 
         // Also find matching Transaction and update it
         $tx = Transaction::where('user_id', $referral->user_id)
             ->where(function ($q) use ($referral) {
-                $q->where('buyer', $referral->name)
+                $q->where('name', $referral->name)
+                  ->orWhere('buyer', $referral->name)
+                  ->orWhere('email', $referral->email)
                   ->orWhere('buyer', $referral->email);
             })->first();
 
@@ -109,6 +126,7 @@ class ReferralController extends Controller
         if ((str_contains($newStatus, 'Converted') || str_contains($newStatus, 'Approved')) && !str_contains($oldStatus, 'Converted') && !str_contains($oldStatus, 'Approved')) {
             if ($tx) {
                 $tx->status = 'Approved';
+                $tx->rejection_reason = null;
                 $tx->save();
             }
             if ($user) {
@@ -123,6 +141,28 @@ class ReferralController extends Controller
                     'title' => 'Referral Commission Approved (+₹10.00)',
                     'message' => "Admin approved referral for {$referral->name}! ₹10.00 has been credited to your available balance.",
                     'type' => 'commission',
+                    'is_read' => false,
+                ]);
+            }
+        } elseif ((str_contains($newStatus, 'Rejected') || str_contains($newStatus, 'Declined')) && !str_contains($oldStatus, 'Rejected')) {
+            if ($tx) {
+                $tx->status = 'Rejected';
+                if ($rejectionReason) {
+                    $tx->rejection_reason = $rejectionReason;
+                }
+                $tx->save();
+            }
+            if ($user) {
+                $commission = 10.00;
+                if ($user->pending_earnings >= $commission) {
+                    $user->decrement('pending_earnings', $commission);
+                }
+                $reasonMsg = $rejectionReason ? " Reason: {$rejectionReason}" : ".";
+                \App\Models\Notification::create([
+                    'user_id' => $user->id,
+                    'title' => 'Referral Submission Rejected',
+                    'message' => "Admin rejected referral submission for {$referral->name}.{$reasonMsg}",
+                    'type' => 'alert',
                     'is_read' => false,
                 ]);
             }

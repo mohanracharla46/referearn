@@ -146,6 +146,11 @@ export const UserEarnings = () => {
                 >
                   {tx.status}
                 </Badge>
+                {(tx.rejection_reason || tx.rejectionReason) && (
+                  <div className="text-[11px] text-rose-600 font-medium mt-1 leading-tight">
+                    Reason: {tx.rejection_reason || tx.rejectionReason}
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           ))}

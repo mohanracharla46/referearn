@@ -31,6 +31,8 @@ Route::prefix('v1')->group(function () {
     // Authentication
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/admin-login', [AuthController::class, 'adminLogin']);
+    Route::post('/auth/google-login', [AuthController::class, 'googleLogin']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
@@ -82,9 +84,12 @@ Route::prefix('v1')->group(function () {
     Route::post('/notifications/broadcast', [NotificationController::class, 'broadcast']);
 
     // Admin Specific APIs
+    Route::get('/admin/active-user-tracking', [DashboardController::class, 'activeUserTracking']);
     Route::get('/admin/users', [AdminUserController::class, 'index']);
     Route::post('/admin/users/{id}/toggle-status', [AdminUserController::class, 'toggleStatus']);
     Route::post('/admin/users/{id}/tier', [AdminUserController::class, 'updateTier']);
+    Route::post('/admin/users/{id}/approve-profile', [AdminUserController::class, 'approveProfileUpdate']);
+    Route::post('/admin/users/{id}/reject-profile', [AdminUserController::class, 'rejectProfileUpdate']);
     Route::get('/admin/fraud-logs', [FraudRiskController::class, 'index']);
     Route::put('/admin/fraud-logs/{id}/status', [FraudRiskController::class, 'updateStatus']);
     Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);

@@ -40,8 +40,8 @@ export const LinkGeneratorModal = ({ isOpen, onClose, defaultProduct = null }) =
         campaignCode,
         utmSource,
       });
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referearn.io';
-      const formattedUrl = res.link ? res.link.replace('https://referearn.io', origin) : `${origin}/p/${selectedProd}?ref=${campaignCode}&utm_source=${utmSource}`;
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://referitup.com';
+      const formattedUrl = res.link ? res.link.replace('https://referitup.com', origin).replace('https://referearn.io', origin) : `${origin}/p/${selectedProd}?ref=${campaignCode}&utm_source=${utmSource}`;
       setGeneratedUrl(formattedUrl);
       addToast({
         title: 'Referral Link Generated',

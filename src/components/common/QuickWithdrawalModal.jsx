@@ -14,7 +14,7 @@ export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 0, on
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [amount, setAmount] = useState('10');
+  const [amount, setAmount] = useState('100');
   const [method, setMethod] = useState('UPI Instant Payout');
   const [destination, setDestination] = useState(user?.upi_id || user?.upiId || '');
   const [loading, setLoading] = useState(false);
@@ -33,8 +33,8 @@ export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 0, on
       addToast({ title: 'Invalid Amount', message: 'Please enter a valid numeric amount.', type: 'error' });
       return;
     }
-    if (numAmount < 10) {
-      addToast({ title: 'Minimum Threshold', message: 'Minimum withdrawal amount is ₹10.00', type: 'warning' });
+    if (numAmount < 100) {
+      addToast({ title: 'Minimum Threshold', message: 'Minimum withdrawal amount is ₹100.00', type: 'warning' });
       return;
     }
     if (numAmount > availableBalance) {
@@ -93,7 +93,7 @@ export const QuickWithdrawalModal = ({ isOpen, onClose, availableBalance = 0, on
           prefix="₹"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          helperText="Minimum withdrawal: ₹10.00"
+          helperText="Minimum withdrawal: ₹100.00"
           required
         />
 

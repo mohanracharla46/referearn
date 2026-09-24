@@ -61,52 +61,158 @@ export const AuthProvider = ({ children }) => {
     }
   }, [activePortal]);
 
+  useEffect(() => {
+    if (user && user.email) {
+      const interval = setInterval(async () => {
+        try {
+          const fresh = await affiliateApi.getMe();
+          if (fresh && fresh.status) {
+            setUser((prev) => {
+              if (!prev) return prev;
+              if (prev.status !== fresh.status || prev.rejection_reason !== fresh.rejection_reason) {
+                const updated = {
+                  ...prev,
+                  status: fresh.status,
+                  rejection_reason: fresh.rejection_reason || fresh.rejectionReason,
+                };
+                localStorage.setItem('referearn_user', JSON.stringify(updated));
+                return updated;
+              }
+              return prev;
+            });
+          }
+        } catch (e) {}
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [user?.email]);
+
   const login = async (email, password = 'password123') => {
     try {
       const res = await affiliateApi.login({ email, password });
-      const loggedUser = res.user;
+      const isNewUser = res.is_new_user ?? res.user?.needs_onboarding ?? false;
+      const loggedUser = {
+        ...res.user,
+        needsOnboarding: isNewUser,
+      };
       setUser(loggedUser);
       localStorage.setItem('referearn_user', JSON.stringify(loggedUser));
+      localStorage.setItem('referearn_onboarding_completed', isNewUser ? 'false' : 'true');
       if (res.token) {
         localStorage.setItem('referearn_token', res.token);
       }
-      const targetPortal = loggedUser.role === 'admin' || email.includes('admin') ? 'admin' : 'user';
-      setActivePortal(targetPortal);
-      return loggedUser;
+      setActivePortal('user');
+      return { user: loggedUser, isNewUser };
     } catch (err) {
+      if (err.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+      if (err.response?.status === 401 || err.response?.status === 422) {
+        throw new Error('Invalid email or password. Please check your credentials.');
+      }
+      const isNetworkOffline = !window.navigator.onLine || err.code === 'ERR_NETWORK' || err.message?.includes('Network Error');
+      if (!isNetworkOffline && err.message) {
+        throw err;
+      }
       const namePart = email.split('@')[0];
       const cleanName = namePart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const isNewUser = !email.includes('kishore'); // kishore@referearn.io is old user
+      const fallbackUser = {
+        id: 'usr-' + Date.now(),
+        name: isNewUser ? '' : cleanName,
+        email: email,
+        phone: isNewUser ? '' : '+91 9876543210',
+        role: 'affiliate',
+        avatar: null,
+        referral_code: 'REF-' + cleanName.toUpperCase().replace(/[^A-Z0-9]/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000),
+        tier: 'Standard Affiliate',
+        available_balance: isNewUser ? 0.0 : 14850.0,
+        total_earnings: isNewUser ? 0.0 : 25400.0,
+        pending_earnings: 0.0,
+        locked_balance: 0.0,
+        referrals_count: isNewUser ? 0 : 12,
+        needsOnboarding: isNewUser,
+      };
+      setUser(fallbackUser);
+      localStorage.setItem('referearn_user', JSON.stringify(fallbackUser));
+      localStorage.setItem('referearn_onboarding_completed', isNewUser ? 'false' : 'true');
+      localStorage.setItem('referearn_token', 'demo-token-' + Date.now());
+      setActivePortal('user');
+      return { user: fallbackUser, isNewUser };
+    }
+  };
+
+  const googleLogin = async ({ credential, email, name, avatar }) => {
+    try {
+      const res = await affiliateApi.googleLogin({ credential, email, name, avatar });
+      const isNewUser = res.is_new_user ?? res.user?.needs_onboarding ?? false;
+      const loggedUser = {
+        ...res.user,
+        needsOnboarding: isNewUser,
+      };
+      setUser(loggedUser);
+      localStorage.setItem('referearn_user', JSON.stringify(loggedUser));
+      localStorage.setItem('referearn_onboarding_completed', isNewUser ? 'false' : 'true');
+      if (res.token) {
+        localStorage.setItem('referearn_token', res.token);
+      }
+      setActivePortal('user');
+      return { user: loggedUser, isNewUser };
+    } catch (err) {
+      const targetEmail = email || 'google.publisher@example.com';
+      const namePart = targetEmail.split('@')[0];
+      const cleanName = name || namePart.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const isNewUser = true;
       const fallbackUser = {
         id: 'usr-' + Date.now(),
         name: cleanName,
-        email: email,
+        email: targetEmail,
         phone: '',
-        role: email.includes('admin') ? 'admin' : 'affiliate',
-        avatar: null,
+        role: 'affiliate',
+        avatar: avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80',
         referral_code: 'REF-' + cleanName.toUpperCase().replace(/[^A-Z0-9]/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000),
-        tier: email.includes('admin') ? 'Administrator' : 'Standard Affiliate',
+        tier: 'Standard Affiliate',
         available_balance: 0.0,
         total_earnings: 0.0,
         pending_earnings: 0.0,
         locked_balance: 0.0,
         referrals_count: 0,
-        needsOnboarding: false,
+        needsOnboarding: true,
       };
       setUser(fallbackUser);
       localStorage.setItem('referearn_user', JSON.stringify(fallbackUser));
-      localStorage.setItem('referearn_token', 'demo-token-' + Date.now());
-      const targetPortal = fallbackUser.role === 'admin' ? 'admin' : 'user';
-      setActivePortal(targetPortal);
-      return fallbackUser;
+      localStorage.setItem('referearn_onboarding_completed', 'false');
+      localStorage.setItem('referearn_token', 'google-demo-token-' + Date.now());
+      setActivePortal('user');
+      return { user: fallbackUser, isNewUser };
     }
+  };
+
+  const adminLogin = async (email, password) => {
+    const res = await affiliateApi.adminLogin({ email, password });
+    const loggedUser = res.user;
+    if (!loggedUser || loggedUser.role !== 'admin') {
+      throw new Error('Access denied. Administrator privileges required.');
+    }
+    setUser(loggedUser);
+    localStorage.setItem('referearn_user', JSON.stringify(loggedUser));
+    if (res.token) {
+      localStorage.setItem('referearn_token', res.token);
+    }
+    setActivePortal('admin');
+    return loggedUser;
   };
 
   const register = async (userData) => {
     try {
       const res = await affiliateApi.register(userData);
-      const newUser = res.user;
+      const newUser = {
+        ...res.user,
+        needsOnboarding: true,
+      };
       setUser(newUser);
       localStorage.setItem('referearn_user', JSON.stringify(newUser));
+      localStorage.setItem('referearn_onboarding_completed', 'false');
       if (res.token) {
         localStorage.setItem('referearn_token', res.token);
       }
@@ -128,10 +234,11 @@ export const AuthProvider = ({ children }) => {
         referrals_count: 0,
         referral_code: 'REF-' + cleanName.toUpperCase().replace(/[^A-Z0-9]/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000),
         tier: 'Standard Affiliate',
-        needsOnboarding: false,
+        needsOnboarding: true,
       };
       setUser(newUser);
       localStorage.setItem('referearn_user', JSON.stringify(newUser));
+      localStorage.setItem('referearn_onboarding_completed', 'false');
       localStorage.setItem('referearn_token', 'demo-token-registered');
       setActivePortal('user');
       return newUser;
@@ -139,22 +246,29 @@ export const AuthProvider = ({ children }) => {
   };
 
   const triggerOnboardingModal = () => {
+    localStorage.setItem('referearn_onboarding_completed', 'false');
     setUser((prev) => ({ ...prev, needsOnboarding: true }));
   };
 
   const updateUserProfile = async (profileData) => {
+    let apiUpdatedUser = null;
     try {
-      await affiliateApi.updateProfile(profileData);
+      const res = await affiliateApi.updateProfile(profileData);
+      if (res && res.user) {
+        apiUpdatedUser = res.user;
+      }
     } catch (e) {
-      console.warn('API profile update error, updating local state', e);
+      console.error('API profile update error:', e);
+      throw e;
     }
     setUser((prev) => {
       const updated = {
         ...prev,
-        ...profileData,
+        ...(apiUpdatedUser || profileData),
         needsOnboarding: false,
       };
       localStorage.setItem('referearn_user', JSON.stringify(updated));
+      localStorage.setItem('referearn_onboarding_completed', 'true');
       return updated;
     });
   };
@@ -169,15 +283,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('referearn_user');
     localStorage.removeItem('referearn_token');
     localStorage.removeItem('referearn_portal');
+    localStorage.removeItem('referearn_onboarding_completed');
   };
 
   const switchPortal = (portal) => {
-    setActivePortal(portal);
     if (portal === 'admin' && user?.role !== 'admin') {
-      setUser((prev) => (prev ? { ...prev, role: 'admin', tier: 'Administrator' } : DEFAULT_ADMIN_USER));
-    } else if (portal === 'user' && user?.role === 'admin') {
-      setUser((prev) => (prev ? { ...prev, role: 'affiliate', tier: 'Standard Affiliate' } : DEFAULT_AFFILIATE_USER));
+      return; // Do not allow non-admin user to switch to admin portal
     }
+    setActivePortal(portal);
   };
 
   return (
@@ -187,6 +300,8 @@ export const AuthProvider = ({ children }) => {
         activePortal,
         switchPortal,
         login,
+        googleLogin,
+        adminLogin,
         register,
         logout,
         triggerOnboardingModal,

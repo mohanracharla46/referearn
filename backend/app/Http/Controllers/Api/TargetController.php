@@ -17,16 +17,17 @@ class TargetController extends Controller
 
         if (!$target) {
             $conversions = $user ? (int) $user->conversions_count : 0;
+            $goal = 7;
             return response()->json([
                 'id' => 'tgt-sprint',
-                'title' => 'Sprint Target',
-                'targetConversions' => 50,
+                'title' => '7-Referral Milestone Sprint',
+                'targetConversions' => $goal,
                 'currentConversions' => $conversions,
-                'percentage' => min(100, round(($conversions / 50) * 100)),
-                'rewardAmount' => 5000.00,
+                'percentage' => min(100, round(($conversions / $goal) * 100)),
+                'rewardAmount' => 30.00,
                 'deadline' => '2026-09-30T23:59:59Z',
-                'completed' => $conversions >= 50,
-                'remainingConversions' => max(0, 50 - $conversions),
+                'completed' => $conversions >= $goal,
+                'remainingConversions' => max(0, $goal - $conversions),
             ]);
         }
 

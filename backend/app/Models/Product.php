@@ -23,6 +23,7 @@ class Product extends Model
         'rating',
         'conversions',
         'description',
+        'product_link',
         'image',
         'rules',
         'assets',

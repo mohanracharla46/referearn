@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid } from 'recharts';
 import { Card } from './Card';
-import { Button } from './Button';
 import { formatCurrency } from '../../utils/formatters';
 
 export const ChartCard = ({
@@ -14,9 +13,19 @@ export const ChartCard = ({
 }) => {
   const [timeframe, setTimeframe] = useState('7d');
 
+  const defaultData = [
+    { day: 'Sep 10', earnings: 0, clicks: 0, conversions: 0 },
+    { day: 'Sep 13', earnings: 0, clicks: 0, conversions: 0 },
+    { day: 'Sep 16', earnings: 0, clicks: 0, conversions: 0 },
+    { day: 'Sep 19', earnings: 0, clicks: 0, conversions: 0 },
+    { day: 'Sep 22', earnings: 0, clicks: 0, conversions: 0 },
+  ];
+
+  const chartData = Array.isArray(data) && data.length > 0 ? data : defaultData;
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const val = payload[0].value;
+      const val = payload[0].value ?? 0;
       return (
         <div className="bg-zinc-950 text-white p-2.5 rounded-md border border-zinc-800 shadow-md text-xs">
           <p className="font-semibold text-zinc-300">{label}</p>
@@ -57,7 +66,7 @@ export const ChartCard = ({
     >
       <div className="h-64 sm:h-72 w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
             <XAxis
               dataKey={xAxisKey}

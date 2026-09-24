@@ -21,7 +21,8 @@ return new class extends Migration
             $table->decimal('rating', 3, 1)->default(4.8);
             $table->integer('conversions')->default(0);
             $table->text('description')->nullable();
-            $table->text('image')->nullable();
+            $table->text('product_link')->nullable();
+            $table->longText('image')->nullable();
             $table->text('rules')->nullable();
             $table->json('assets')->nullable();
             $table->timestamps();

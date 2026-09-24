@@ -28,6 +28,8 @@ export const UserProfileSettings = () => {
   const [newPass, setNewPass] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [pendingApproval, setPendingApproval] = useState(false);
+
   React.useEffect(() => {
     if (user) {
       if (user.name) setName(user.name);
@@ -42,16 +44,18 @@ export const UserProfileSettings = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await updateUserProfile({
+      const res = await updateUserProfile({
         name,
         phone,
         upi_id: upiId,
         bank_account: bankAccount,
       });
+
+      setPendingApproval(true);
       addToast({
-        title: 'Settings Saved',
-        message: 'Your profile settings have been successfully updated in database.',
-        type: 'success',
+        title: 'Submitted for Admin Approval',
+        message: 'Account & Payout detail updates have been queued. Changes will apply after Admin approval.',
+        type: 'info',
       });
     } catch (err) {
       addToast({
@@ -70,6 +74,18 @@ export const UserProfileSettings = () => {
         title="Account Profile & Settings"
         subtitle="Manage your publisher identity, security parameters, payout accounts, and preferences."
       />
+
+      {pendingApproval && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-xs text-amber-900 font-medium">
+          <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-amber-950 text-sm">Pending Admin Approval</h4>
+            <p className="mt-0.5">
+              Your requested updates to User ID / Name, UPI Handle, and Bank Account details are queued and awaiting Super Administrator approval.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Tabs
         activeTab={activeTab}

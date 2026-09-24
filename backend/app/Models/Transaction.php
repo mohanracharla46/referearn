@@ -18,6 +18,7 @@ class Transaction extends Model
         'amount',
         'commission',
         'status',
+        'rejection_reason',
         'type',
         'transaction_date',
     ];

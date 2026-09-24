@@ -18,6 +18,7 @@ class Referral extends Model
         'product_id',
         'clicks',
         'status',
+        'rejection_reason',
         'total_earned',
     ];
 

@@ -19,6 +19,8 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
+import { handlePostAuthRedirect, PRIMARY_REFERRAL_REDIRECT_URL } from '../../utils/navigation';
+
 export const JoinReferral = () => {
   const [searchParams] = useSearchParams();
   const params = useParams();
@@ -39,6 +41,9 @@ export const JoinReferral = () => {
     setReferrerCode(code);
     if (typeof window !== 'undefined') {
       localStorage.setItem('referearn_referrer_code', code);
+      if (!localStorage.getItem('referearn_target_product_link')) {
+        localStorage.setItem('referearn_target_product_link', PRIMARY_REFERRAL_REDIRECT_URL);
+      }
     }
   }, [searchParams, params]);
 
@@ -94,7 +99,7 @@ export const JoinReferral = () => {
       });
 
       setIsModalOpen(false);
-      navigate('/app/dashboard', { replace: true });
+      await handlePostAuthRedirect(navigate);
     } catch (err) {
       addToast({
         title: 'Signup Failed',
@@ -114,12 +119,10 @@ export const JoinReferral = () => {
 
       {/* Header */}
       <header className="flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-8 h-8 rounded-lg bg-white text-zinc-950 font-black text-sm flex items-center justify-center tracking-tighter shadow-sm">
-            re
-          </div>
-          <span className="font-extrabold text-2xl tracking-tighter text-white lowercase">
-            referearn
+        <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
+          <img src="/logo.png" alt="Referitup Logo" className="h-8 w-auto object-contain" />
+          <span className="font-extrabold text-2xl tracking-tight text-white">
+            Referitup
           </span>
         </div>
 
@@ -139,7 +142,7 @@ export const JoinReferral = () => {
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-          You've been invited to join ReferEarn
+          You've been invited to join Referitup
         </h1>
 
         <p className="text-sm sm:text-base text-zinc-400 max-w-lg mx-auto leading-relaxed">
@@ -170,7 +173,7 @@ export const JoinReferral = () => {
 
       {/* Footer */}
       <footer className="text-center text-xs text-zinc-500 relative z-10">
-        © 2026 ReferEarn Platform. Zero registration fee. Instant wallet activation.
+        © 2026 Referitup Platform. Zero registration fee. Instant wallet activation.
       </footer>
 
       {/* Referral Onboarding Modal Popup */}

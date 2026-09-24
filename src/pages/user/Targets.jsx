@@ -7,6 +7,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Table, TableRow, TableCell } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Target, Award, CheckCircle2, Users } from 'lucide-react';
+import { SprintMilestoneWidget } from '../../components/common/SprintMilestoneWidget';
+import { ReferralMilestonesTable } from '../../components/referrals/ReferralMilestonesTable';
 
 export const UserTargets = () => {
   const { data: target } = useQuery({
@@ -30,8 +32,11 @@ export const UserTargets = () => {
     <div className="space-y-6">
       <PageHeader
         title="Incentive Targets & Milestone Bonuses"
-        subtitle="Achieve conversion targets to unlock cash bonuses credited straight to your available balance."
+        subtitle="Referral Program Ends on 15 October 2026. Minimum withdrawal amount: ₹50."
       />
+
+      {/* Referral Milestone Rewards Table */}
+      <ReferralMilestonesTable currentReferrals={referrals.filter(r => r.status?.includes('Converted')).length} />
 
       {/* Active Sprint Target Box */}
       <Card
@@ -48,59 +53,10 @@ export const UserTargets = () => {
           </div>
         }
       >
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-extrabold text-zinc-950 tracking-tight">{target?.title}</h2>
-              <p className="text-xs text-zinc-500 mt-1 font-medium">
-                Reach {target?.targetConversions} converted customer sales across any marketplace product.
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block font-mono">Bonus Reward</span>
-              <span className="financial-num text-2xl font-black text-zinc-950">
-                {formatCurrency(target?.rewardAmount || 0)}
-              </span>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-zinc-700">Sprint Progress</span>
-              <span className="text-zinc-950 font-bold font-mono">
-                {target?.percentage}% ({target?.currentConversions} / {target?.targetConversions} Sales)
-              </span>
-            </div>
-            <div className="w-full bg-zinc-100 h-3.5 rounded-full overflow-hidden border border-zinc-200">
-              <div
-                className="bg-zinc-950 h-full rounded-full transition-all duration-500"
-                style={{ width: `${target?.percentage}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs">
-              <span className="text-zinc-500 font-semibold uppercase tracking-wider text-[10px] block">Remaining Sales Required</span>
-              <span className="text-base font-extrabold text-zinc-950 block mt-0.5">
-                {target?.remainingConversions} conversions
-              </span>
-            </div>
-            <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs">
-              <span className="text-zinc-500 font-semibold uppercase tracking-wider text-[10px] block">Sprint Deadline</span>
-              <span className="text-base font-mono font-bold text-zinc-950 block mt-0.5">
-                {formatDate(target?.deadline)}
-              </span>
-            </div>
-            <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs">
-              <span className="text-zinc-500 font-semibold uppercase tracking-wider text-[10px] block">Milestone Status</span>
-              <span className="text-base font-bold text-amber-700 block mt-0.5">
-                {target?.completed ? 'Completed' : 'In Progress'}
-              </span>
-            </div>
-          </div>
-        </div>
+        <SprintMilestoneWidget
+          target={target}
+          showRulesButton={false}
+        />
       </Card>
 
       {/* Referred Clients Contributing to Sprint Target Table */}

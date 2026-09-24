@@ -91,6 +91,24 @@ export const UserDashboard = () => {
         }
       />
 
+      {/* Referral Program Notice Banner */}
+      <div className="bg-gradient-to-r from-rose-950 via-amber-950 to-zinc-950 text-white p-4 rounded-xl border border-rose-800/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Clock className="w-5 h-5 text-rose-400 shrink-0" />
+          <div>
+            <span className="font-extrabold text-xs sm:text-sm text-white tracking-tight">
+              Referral Program Ends on 15 October 2026
+            </span>
+            <p className="text-[11px] text-rose-200/80">
+              Achieve your referral targets before 15 October 2026 to claim maximum milestone bonuses.
+            </p>
+          </div>
+        </div>
+        <div className="bg-zinc-900/80 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-bold text-amber-400 shrink-0 font-mono">
+          Minimum Withdrawal: ₹50
+        </div>
+      </div>
+
       {/* Primary KPI Stat Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
@@ -261,6 +279,11 @@ export const UserDashboard = () => {
                     >
                       {tx.status}
                     </Badge>
+                    {(tx.rejection_reason || tx.rejectionReason) && (
+                      <div className="text-[11px] text-rose-600 font-medium mt-1 leading-tight">
+                        Reason: {tx.rejection_reason || tx.rejectionReason}
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -277,9 +300,9 @@ export const UserDashboard = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/app/marketplace')}
+                  onClick={() => navigate('/app/refer')}
                 >
-                  Marketplace
+                  Refer & Earn
                 </Button>
               </div>
             }

@@ -46,7 +46,7 @@ export const UserWithdrawals = () => {
         />
         <Card className="flex flex-col justify-between">
           <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Minimum Threshold</span>
-          <div className="financial-num text-2xl font-bold text-zinc-950 mt-1">₹500.00</div>
+          <div className="financial-num text-2xl font-bold text-zinc-950 mt-1">₹100.00</div>
           <span className="text-xs text-zinc-500 mt-2">Zero platform fees on standard UPI</span>
         </Card>
         <Card className="flex flex-col justify-between">

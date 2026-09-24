@@ -6,6 +6,9 @@ import { Input } from '../../components/ui/Input';
 import { useToast } from '../../context/ToastContext';
 import { User, Mail, Lock, ShieldCheck, ArrowRight, Sparkles, Phone } from 'lucide-react';
 
+import { checkIsPhoneDuplicate, registerUserPhone } from '../../utils/validation';
+import { handlePostAuthRedirect, PRIMARY_REFERRAL_REDIRECT_URL } from '../../utils/navigation';
+
 export const Register = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -21,15 +24,30 @@ export const Register = () => {
   const [referrerCode, setReferrerCode] = useState('');
 
   useEffect(() => {
-    const urlRef = searchParams.get('ref') || params.code || localStorage.getItem('referearn_referrer_code') || '';
+    const directUrlRef = searchParams.get('ref') || params.code;
+    const urlRef = directUrlRef || localStorage.getItem('referearn_referrer_code') || '';
     if (urlRef) {
       setReferrerCode(urlRef);
       localStorage.setItem('referearn_referrer_code', urlRef);
+    }
+    if (directUrlRef) {
+      if (!localStorage.getItem('referearn_target_product_link')) {
+        localStorage.setItem('referearn_target_product_link', PRIMARY_REFERRAL_REDIRECT_URL);
+      }
     }
   }, [searchParams, params]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (phone && checkIsPhoneDuplicate(phone)) {
+      addToast({
+        title: 'Phone Number Already Exists',
+        message: 'Phone number is already exist.',
+        type: 'error',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       await register({
@@ -39,14 +57,15 @@ export const Register = () => {
         password,
         referral_code: referrerCode || undefined,
       });
+      registerUserPhone(phone);
       addToast({
         title: 'Account Created',
         message: referrerCode
-          ? `Welcome to ReferEarn! Linked to partner ${referrerCode}.`
-          : 'Welcome to ReferEarn! Your affiliate dashboard is ready.',
+          ? `Welcome to Referitup! Linked to partner ${referrerCode}.`
+          : 'Welcome to Referitup! Your affiliate dashboard is ready.',
         type: 'success',
       });
-      navigate('/app/dashboard');
+      await handlePostAuthRedirect(navigate);
     } catch (err) {
       addToast({
         title: 'Registration Error',
@@ -65,11 +84,9 @@ export const Register = () => {
         <div className="lg:col-span-5 bg-zinc-950 text-white p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-zinc-800">
           <div>
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-9 h-9 rounded-lg bg-white text-zinc-950 font-black text-base flex items-center justify-center">
-                RE
-              </div>
+              <img src="/logo.png" alt="Referitup Logo" className="w-9 h-9 rounded-lg bg-white p-0.5 object-contain shrink-0" />
               <div>
-                <span className="font-bold text-lg text-white block leading-none">ReferEarn</span>
+                <span className="font-bold text-lg text-white block leading-none">Referitup</span>
                 <span className="text-[10px] text-zinc-400 font-mono tracking-widest block mt-1 uppercase font-semibold">
                   Publisher Signup
                 </span>

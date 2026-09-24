@@ -44,6 +44,14 @@ export const AdminDashboard = () => {
     queryFn: affiliateApi.getChartData,
   });
 
+  const { data: rawReferrals = [] } = useQuery({
+    queryKey: ['referrals'],
+    queryFn: () => affiliateApi.getReferrals(),
+    refetchInterval: 3000,
+  });
+
+  const recentReferrals = Array.isArray(rawReferrals) ? rawReferrals : (rawReferrals?.data || []);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -147,6 +155,66 @@ export const AdminDashboard = () => {
           </Card>
         </div>
       </div>
+
+      {/* Recent Referral Attribution Log (Who Referred Whom) */}
+      <Card
+        header={
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-zinc-950">Recent Referral Attribution Stream</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/referrals')}>
+              View All Referrals & Clearance
+            </Button>
+          </div>
+        }
+      >
+        <Table headers={['Referred Contact (User B)', 'Referred By (User A)', 'Product / Source', 'Date', 'Commission', 'Status']}>
+          {recentReferrals.slice(0, 5).map((r) => {
+            const referrerDisplay = r.referrer_name || r.referrerName || (r.user ? r.user.name : 'User A');
+            const referrerMail = r.referrer_email || r.referrerEmail || (r.user ? r.user.email : '');
+
+            return (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <div className="font-bold text-zinc-950">{r.name}</div>
+                  <div className="text-[11px] text-zinc-500 font-mono">{r.email}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="font-semibold text-indigo-700 text-xs">
+                    Referred by {referrerDisplay}
+                  </div>
+                  {referrerMail && (
+                    <div className="text-[11px] text-zinc-500 font-mono">{referrerMail}</div>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs font-semibold text-zinc-900">{r.product}</TableCell>
+                <TableCell className="font-mono text-xs text-zinc-500">{formatDate(r.date)}</TableCell>
+                <TableCell className="financial-num font-bold text-zinc-950">
+                  {formatCurrency(r.totalEarned)}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      r.status.includes('Converted') || r.status.includes('Approved')
+                        ? 'success'
+                        : r.status.includes('Rejected')
+                        ? 'danger'
+                        : r.status.includes('Active')
+                        ? 'info'
+                        : 'warning'
+                    }
+                    dot
+                  >
+                    {r.status}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </Table>
+      </Card>
 
       {/* Top Affiliate Publishers Directory Preview */}
       <Card

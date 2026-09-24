@@ -49,6 +49,7 @@ class TransactionController extends Controller
                 'amount' => (float) $t->amount,
                 'commission' => (float) $t->commission,
                 'status' => $t->status,
+                'rejection_reason' => $t->rejection_reason,
                 'type' => $t->type,
             ];
         });
@@ -60,11 +61,18 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'status' => 'required|in:Approved,Pending,Reversed',
+            'rejection_reason' => 'nullable|string',
+            'rejectionReason' => 'nullable|string',
         ]);
 
         $tx = Transaction::findOrFail($id);
         $oldStatus = $tx->status;
         $newStatus = $validated['status'];
+        $rejectionReason = $validated['rejection_reason'] ?? $validated['rejectionReason'] ?? null;
+
+        if ($rejectionReason) {
+            $tx->rejection_reason = $rejectionReason;
+        }
 
         if ($oldStatus === $newStatus) {
             return response()->json([
@@ -74,6 +82,9 @@ class TransactionController extends Controller
         }
 
         $tx->status = $newStatus;
+        if ($newStatus === 'Approved') {
+            $tx->rejection_reason = null;
+        }
         $tx->save();
 
         $user = User::find($tx->user_id);
@@ -96,6 +107,7 @@ class TransactionController extends Controller
                     })
                     ->update([
                         'status' => 'Converted (₹10 Credited)',
+                        'rejection_reason' => null,
                         'total_earned' => $commission,
                     ]);
 
@@ -120,6 +132,7 @@ class TransactionController extends Controller
                     })
                     ->update([
                         'status' => 'Converted (₹10 Credited)',
+                        'rejection_reason' => null,
                         'total_earned' => $commission,
                     ]);
 

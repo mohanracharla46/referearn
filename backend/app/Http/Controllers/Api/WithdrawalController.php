@@ -46,7 +46,7 @@ class WithdrawalController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:10',
+            'amount' => 'required|numeric|min:100',
             'method' => 'required|string',
             'destination' => 'required|string',
         ]);
@@ -57,6 +57,12 @@ class WithdrawalController extends Controller
         }
 
         $amount = (float) $validated['amount'];
+
+        if ($amount < 100.00) {
+            return response()->json([
+                'message' => 'Minimum withdrawal amount is ₹100.00.',
+            ], 422);
+        }
 
         if ($amount > $user->available_balance) {
             return response()->json([

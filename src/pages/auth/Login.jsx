@@ -5,15 +5,107 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { UserOnboardingModal } from '../../components/common/UserOnboardingModal';
 import { ToastContainer } from '../../components/ui/Toast';
-import { Lock, Building2, User } from 'lucide-react';
+import { Lock, Building2, User, BookOpen } from 'lucide-react';
+import { handlePostAuthRedirect, PRIMARY_REFERRAL_REDIRECT_URL } from '../../utils/navigation';
 
 export const Login = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const { addToast } = useToast();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref');
+      const prodId = urlParams.get('productId');
+      if (refCode || prodId) {
+        if (refCode) localStorage.setItem('referearn_referrer_code', refCode);
+        if (prodId) localStorage.setItem('referearn_target_product_id', prodId);
+        if (!localStorage.getItem('referearn_target_product_link')) {
+          localStorage.setItem('referearn_target_product_link', PRIMARY_REFERRAL_REDIRECT_URL);
+        }
+      } else {
+        // Direct website login (no referral parameters): clear any target product link pointers
+        localStorage.removeItem('referearn_target_product_link');
+        localStorage.removeItem('referearn_target_product_id');
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      try {
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '1049432934183-rgt29b9n8h7g89geijqcau6ktcjoduok.apps.googleusercontent.com';
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response) => {
+            if (response.credential) {
+              setLoading(true);
+              try {
+                let googleEmail = null;
+                let googleName = null;
+                let googleAvatar = null;
+                try {
+                  const parts = response.credential.split('.');
+                  if (parts.length >= 2) {
+                    const base64Url = parts[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(
+                      atob(base64)
+                        .split('')
+                        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                        .join('')
+                    );
+                    const parsed = JSON.parse(jsonPayload);
+                    googleEmail = parsed.email;
+                    googleName = parsed.name;
+                    googleAvatar = parsed.picture;
+                  }
+                } catch (e) {}
+
+                const { user: loggedUser, isNewUser } = await googleLogin({
+                  credential: response.credential,
+                  email: googleEmail,
+                  name: googleName,
+                  avatar: googleAvatar,
+                });
+                queryClient.clear();
+                queryClient.invalidateQueries();
+
+                const isCompleted = typeof window !== 'undefined' && localStorage.getItem('referearn_onboarding_completed') === 'true';
+
+                if (isNewUser && !isCompleted) {
+                  addToast({
+                    title: 'Google Auth Successful',
+                    message: 'Authenticated via Google! Please complete your name & phone number.',
+                    type: 'info',
+                  });
+                  navigate('/app/dashboard', { replace: true });
+                } else {
+                  addToast({
+                    title: 'Welcome Back',
+                    message: `Signed in via Google as ${loggedUser.name || loggedUser.email}.`,
+                    type: 'success',
+                  });
+                  await handlePostAuthRedirect(navigate);
+                }
+              } catch (err) {
+                addToast({ title: 'Google Auth Error', message: err.message || 'Unable to authenticate.', type: 'error' });
+              } finally {
+                setLoading(false);
+              }
+            }
+          },
+        });
+      } catch (e) {
+        // GIS init fallback
+      }
+    }
+  }, [googleLogin, navigate, queryClient, addToast]);
 
   const handleSubmit = async (e, customEmail = null) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -22,22 +114,32 @@ export const Login = () => {
       addToast({ title: 'Email Required', message: 'Please enter your email address to log in.', type: 'warning' });
       return;
     }
+    if (!password) {
+      addToast({ title: 'Password Required', message: 'Please enter your password to log in.', type: 'warning' });
+      return;
+    }
     setLoading(true);
     try {
-      const loggedUser = await login(targetEmail, 'password123');
-      // Wipe old session query caches
+      const { user: loggedUser, isNewUser } = await login(targetEmail, password);
       queryClient.clear();
       queryClient.invalidateQueries();
 
-      addToast({
-        title: 'Welcome Back',
-        message: `Signed in as ${loggedUser?.role === 'admin' || targetEmail.includes('admin') ? 'Enterprise Administrator' : 'Affiliate Publisher'}.`,
-        type: 'success',
-      });
-      if (loggedUser?.role === 'admin' || targetEmail.includes('admin')) {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
+      const isCompleted = typeof window !== 'undefined' && localStorage.getItem('referearn_onboarding_completed') === 'true';
+
+      if (isNewUser && !isCompleted) {
+        addToast({
+          title: 'Welcome to Referitup',
+          message: 'Account provisioned. Please complete your profile details.',
+          type: 'info',
+        });
         navigate('/app/dashboard', { replace: true });
+      } else {
+        addToast({
+          title: 'Welcome Back',
+          message: `Signed in as ${loggedUser.name || 'Affiliate Publisher'}.`,
+          type: 'success',
+        });
+        await handlePostAuthRedirect(navigate);
       }
     } catch (err) {
       addToast({ title: 'Login Error', message: err.message || 'Unable to log in.', type: 'error' });
@@ -46,14 +148,126 @@ export const Login = () => {
     }
   };
 
-  const fillAffiliateDemo = () => {
-    setEmail('kishore@referearn.io');
-    addToast({ title: 'Affiliate Demo Selected', message: 'Filled publisher email.', type: 'info' });
+  const handleGoogleLogin = async () => {
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+      try {
+        const clientId =
+          import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+          '1049432934183-rgt29b9n8h7g89geijqcau6ktcjoduok.apps.googleusercontent.com';
+
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid',
+          callback: async (tokenResponse) => {
+            if (tokenResponse.error) {
+              addToast({ title: 'Google Sign-In', message: tokenResponse.error_description || 'Google authentication was cancelled.', type: 'warning' });
+              return;
+            }
+            if (tokenResponse.access_token) {
+              setLoading(true);
+              try {
+                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+                });
+                const profile = await userInfoRes.json();
+
+                if (!profile || !profile.email) {
+                  throw new Error('Could not retrieve email from Google account profile.');
+                }
+
+                const { user: loggedUser, isNewUser } = await googleLogin({
+                  email: profile.email,
+                  name: profile.name || profile.given_name || profile.email.split('@')[0],
+                  avatar: profile.picture,
+                });
+                queryClient.clear();
+                queryClient.invalidateQueries();
+
+                const isCompleted = typeof window !== 'undefined' && localStorage.getItem('referearn_onboarding_completed') === 'true';
+
+                if (isNewUser && !isCompleted) {
+                  addToast({
+                    title: 'Google OAuth Successful',
+                    message: `Authenticated as ${profile.email}! Please complete your profile.`,
+                    type: 'info',
+                  });
+                  navigate('/app/dashboard', { replace: true });
+                } else {
+                  addToast({
+                    title: 'Welcome Back',
+                    message: `Signed in via Google as ${loggedUser.name || profile.email}.`,
+                    type: 'success',
+                  });
+                  await handlePostAuthRedirect(navigate);
+                }
+              } catch (err) {
+                addToast({ title: 'Google Auth Error', message: err.message || 'Unable to authenticate with Google.', type: 'error' });
+              } finally {
+                setLoading(false);
+              }
+            }
+          },
+        });
+
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+        return;
+      } catch (e) {
+        console.error('GIS initTokenClient initialization error:', e);
+      }
+    }
+
+    triggerFallbackGoogleAuth();
   };
 
-  const fillAdminDemo = () => {
-    setEmail('admin@referearn.io');
-    addToast({ title: 'Admin Demo Selected', message: 'Filled enterprise admin email.', type: 'info' });
+  const triggerFallbackGoogleAuth = async () => {
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      addToast({
+        title: 'Work Email Required',
+        message: 'Please enter your Google email in the email box above to log in.',
+        type: 'warning',
+      });
+      return;
+    }
+    const namePart = targetEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    setLoading(true);
+    try {
+      const { user: loggedUser, isNewUser } = await googleLogin({
+        email: targetEmail,
+        name: namePart,
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80',
+      });
+      queryClient.clear();
+      queryClient.invalidateQueries();
+
+      const isCompleted = typeof window !== 'undefined' && localStorage.getItem('referearn_onboarding_completed') === 'true';
+
+      if (isNewUser && !isCompleted) {
+        addToast({
+          title: 'Google Auth Successful',
+          message: 'Authenticated! Please complete your name & phone number.',
+          type: 'info',
+        });
+        navigate('/app/dashboard', { replace: true });
+      } else {
+        addToast({
+          title: 'Welcome Back',
+          message: `Signed in via Google as ${loggedUser.name || targetEmail}.`,
+          type: 'success',
+        });
+        await handlePostAuthRedirect(navigate);
+      }
+    } catch (err) {
+      addToast({ title: 'Google Auth Error', message: err.message || 'Unable to authenticate with Google.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fillAffiliateDemo = () => {
+    setEmail('kishore@referearn.io');
+    setPassword('password123');
+    addToast({ title: 'Affiliate Demo Selected', message: 'Filled publisher email and demo password.', type: 'info' });
   };
 
   return (
@@ -65,23 +279,29 @@ export const Login = () => {
         <div className="absolute top-1/2 -right-32 w-[420px] h-[420px] bg-pink-400/20 rounded-full blur-3xl pointer-events-none animate-glow-pink z-0" />
         <div className="absolute -bottom-32 left-1/3 w-80 h-80 bg-purple-400/15 rounded-full blur-3xl pointer-events-none animate-glow-blue z-0" />
 
-        {/* Top Dub-style Logo */}
-        <div className="flex justify-center pt-2 pb-6 relative z-10">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-8 h-8 rounded-lg bg-zinc-950 text-white font-black text-sm flex items-center justify-center tracking-tighter shadow-sm">
-              re
-            </div>
-            <span className="font-extrabold text-2xl tracking-tighter text-zinc-950 lowercase">
-              referearn
+        {/* Top Dub-style Logo & User Guide Button */}
+        <div className="flex items-center justify-between pt-2 pb-6 relative z-10">
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
+            <img src="/logo.png" alt="Referitup Logo" className="h-9 w-auto object-contain" />
+            <span className="font-extrabold text-2xl tracking-tight text-zinc-950">
+              Referitup
             </span>
           </div>
+          <Link
+            to="/guide"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-900 text-xs font-bold transition-subtle border border-zinc-200 shadow-2xs"
+            title="Open Platform User Guide without login"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+            <span>User Guide</span>
+          </Link>
         </div>
 
         {/* Main Center Auth Form */}
         <div className="w-full max-w-sm mx-auto space-y-6 relative z-10">
           <div className="text-center space-y-1.5">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-950">
-              Log in to your ReferEarn account
+              Log in to your Referitup account
             </h1>
           </div>
 
@@ -98,10 +318,24 @@ export const Login = () => {
               />
             </div>
 
+            <div className="space-y-1.5 text-left">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-700">Password</label>
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 border border-zinc-300 rounded-lg text-sm text-zinc-900 bg-white/90 backdrop-blur-xs placeholder:text-zinc-400 focus:outline-none focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 transition-subtle"
+                required
+              />
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-zinc-950 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 active:bg-black transition-subtle shadow-xs flex items-center justify-center gap-2"
+              className="w-full py-2.5 px-4 bg-zinc-950 text-white text-sm font-semibold rounded-lg hover:bg-zinc-800 active:bg-black transition-subtle shadow-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -123,12 +357,8 @@ export const Login = () => {
           <div className="space-y-2.5">
             <button
               type="button"
-              onClick={() => {
-                const target = email.trim() || 'google.publisher@example.com';
-                setEmail(target);
-                handleSubmit(null, target);
-              }}
-              className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs"
+              onClick={handleGoogleLogin}
+              className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -150,72 +380,42 @@ export const Login = () => {
               </svg>
               <span>Continue with Google</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const target = email.trim() || 'github.publisher@example.com';
-                setEmail(target);
-                handleSubmit(null, target);
-              }}
-              className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs"
-            >
-              <svg className="w-4 h-4 fill-zinc-900" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-              <span>Continue with GitHub</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const target = email.trim() || 'sso.publisher@example.com';
-                setEmail(target);
-                handleSubmit(null, target);
-              }}
-              className="w-full py-2.5 px-4 bg-white/90 backdrop-blur-xs border border-zinc-200/90 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:bg-zinc-100 transition-subtle flex items-center justify-center gap-2.5 shadow-2xs"
-            >
-              <Lock className="w-3.5 h-3.5 text-zinc-600" />
-              <span>Continue with SAML SSO</span>
-            </button>
           </div>
 
-          <p className="text-center text-xs text-zinc-600 font-medium">
-            Don't have an account?{' '}
-            <Link to="/auth/register" className="font-bold text-zinc-950 hover:underline">
-              Sign up
-            </Link>
-          </p>
-
-          {/* Dotted Partner Account Box */}
-          <div className="p-4 rounded-xl border border-dashed border-zinc-300 bg-white/60 backdrop-blur-xs bg-dots-pattern text-center space-y-2">
-            <span className="text-xs text-zinc-600 font-medium block">
-              Looking for your 1-Click Demo accounts?
-            </span>
-            <div className="flex items-center justify-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={fillAffiliateDemo}
-                className="px-3 py-1.5 bg-white border border-zinc-200 rounded-md text-xs font-bold text-zinc-900 hover:bg-zinc-100 transition-subtle shadow-2xs flex items-center gap-1 cursor-pointer"
+          <div className="space-y-2 text-center text-xs">
+            <p className="text-zinc-600 font-medium">
+              Don't have an account?{' '}
+              <Link to="/auth/register" className="font-bold text-zinc-950 hover:underline">
+                Sign up
+              </Link>
+            </p>
+            <p>
+              <Link
+                to="/guide"
+                className="inline-flex items-center gap-1.5 font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-xs"
               >
-                <User className="w-3 h-3 text-zinc-600" />
-                Affiliate Demo
-              </button>
-              <button
-                type="button"
-                onClick={fillAdminDemo}
-                className="px-3 py-1.5 bg-zinc-950 text-white border border-zinc-950 rounded-md text-xs font-bold hover:bg-zinc-800 transition-subtle shadow-2xs flex items-center gap-1 cursor-pointer"
-              >
-                <Building2 className="w-3 h-3 text-white" />
-                Admin Console
-              </button>
-            </div>
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Need help? View Platform User Guide</span>
+              </Link>
+            </p>
           </div>
         </div>
 
-        {/* Footer Terms */}
-        <div className="text-center text-[11px] text-zinc-400 font-medium pt-6 relative z-10">
-          By continuing, you agree to ReferEarn's Terms of Service and Privacy Policy
+        {/* Footer Terms & Ownership */}
+        <div className="text-center text-[11px] text-zinc-400 font-medium pt-6 relative z-10 space-y-1">
+          <div>By continuing, you agree to Referitup's Terms of Service and Privacy Policy.</div>
+          <div>
+            Referitup is a product of{' '}
+            <a
+              href="https://nkxus.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-zinc-600 hover:underline"
+            >
+              NKXUS Pvt. Ltd. (nkxus.com)
+            </a>
+            . All rights reserved.
+          </div>
         </div>
       </div>
 
@@ -245,7 +445,7 @@ export const Login = () => {
           {/* Card Content Bottom */}
           <div className="relative z-10 space-y-4">
             <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white leading-snug max-w-sm">
-              Learn how Wispr Flow reached millions more users with ReferEarn
+              Learn how Wispr Flow reached millions more users with Referitup
             </h3>
             <button className="px-4 py-2 bg-white text-zinc-950 text-xs font-bold rounded-full hover:bg-zinc-100 transition-subtle shadow-md cursor-pointer">
               Read story

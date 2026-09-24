@@ -21,17 +21,9 @@ abstract class Controller
         // 2. Parse Bearer token from Authorization header
         $bearer = $request->bearerToken();
         if ($bearer) {
-            if ($bearer === 'demo-token-affiliate') {
-                $user = User::where('email', 'kishore@referearn.io')->first();
-                if ($user) return $user;
-            } elseif ($bearer === 'demo-token-admin') {
-                $user = User::where('email', 'admin@referearn.io')->first();
-                if ($user) return $user;
-            } else {
-                $tokenRecord = PersonalAccessToken::findToken($bearer);
-                if ($tokenRecord && $tokenRecord->tokenable instanceof User) {
-                    return $tokenRecord->tokenable;
-                }
+            $tokenRecord = PersonalAccessToken::findToken($bearer);
+            if ($tokenRecord && $tokenRecord->tokenable instanceof User) {
+                return $tokenRecord->tokenable;
             }
         }
 

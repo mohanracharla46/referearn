@@ -27,6 +27,9 @@ import {
   Sparkles,
   ChevronRight,
   Building2,
+  BookOpen,
+  Phone,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const UserLayout = () => {
@@ -37,6 +40,17 @@ export const UserLayout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -70,14 +84,12 @@ export const UserLayout = () => {
 
   const mainNavItems = [
     { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
-    { label: 'Available Marketplace', path: '/app/marketplace', icon: Store },
     { label: 'Refer & Earn', path: '/app/refer', icon: Share2 },
+    { label: 'User Guide', path: '/app/guide', icon: BookOpen },
   ];
 
   const financialNavItems = [
     { label: 'Earnings', path: '/app/earnings', icon: DollarSign },
-    { label: 'Targets', path: '/app/targets', icon: Target },
-    { label: 'Analytics', path: '/app/analytics', icon: BarChart3 },
     { label: 'Wallet', path: '/app/wallet', icon: Wallet },
     { label: 'Withdrawals', path: '/app/withdrawals', icon: ArrowUpRight },
   ];
@@ -88,44 +100,78 @@ export const UserLayout = () => {
     { label: 'Settings', path: '/app/settings', icon: Settings },
   ];
 
-  return (
-    <div className="min-h-screen bg-zinc-100/90 flex flex-col font-sans text-zinc-950">
-      {/* Top Banner Ticker & Switcher */}
-      <div className="bg-zinc-950 text-white text-xs px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-zinc-800 sticky top-0 z-40">
-        <div className="flex items-center gap-2 font-medium text-center sm:text-left">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <span className="font-bold tracking-tight">REFEREARN PLATFORM</span>
-          <span className="hidden sm:inline text-zinc-400">| Affiliate Publisher Workspace</span>
-        </div>
+  if (user?.status === 'Suspended') {
+    const suspensionReason = user.rejection_reason || user.rejectionReason || 'Terms & conditions violation or security review';
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 font-sans">
+        <div className="w-full max-w-md bg-zinc-900 border border-rose-900/60 rounded-2xl shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6 text-center text-white relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-600 via-red-500 to-rose-600" />
+          
+          <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500 shadow-inner">
+            <ShieldAlert className="w-8 h-8 animate-pulse" />
+          </div>
 
-        {/* Portal Switcher Button */}
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-400 text-[11px] hidden md:inline font-mono font-medium">CONSOLE MODE:</span>
-          <div className="flex bg-zinc-900 p-0.5 rounded-md border border-zinc-800">
-            <button
-              onClick={() => {
-                switchPortal('user');
-                navigate('/app/dashboard');
-              }}
-              className={`px-3 py-1 text-xs font-bold rounded transition-subtle ${
-                activePortal === 'user' ? 'bg-white text-zinc-950 shadow-xs' : 'text-zinc-400 hover:text-white'
-              }`}
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/20 border border-rose-500/40 rounded-full text-rose-400 font-mono text-[11px] font-bold uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              Account Suspended
+            </div>
+            <h2 className="text-2xl font-black text-white tracking-tight">Publisher Access Restricted</h2>
+            <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+              Your affiliate account ({user.email}) has been suspended by a system administrator.
+            </p>
+          </div>
+
+          <div className="p-4 bg-zinc-950 border border-rose-900/40 rounded-xl text-left space-y-1.5 shadow-inner">
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-400">
+              Reason for Suspension
+            </div>
+            <p className="text-xs font-semibold text-white leading-relaxed">
+              {suspensionReason}
+            </p>
+          </div>
+
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            All feature permissions (referral links, tracking, wallet withdrawals) are locked. If you believe this action was taken in error, contact support.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <a
+              href="https://wa.me/919160442966"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-md"
             >
-              Affiliate Portal
-            </button>
+              <Phone className="w-4 h-4" />
+              <span>Contact Support</span>
+            </a>
             <button
-              onClick={() => {
-                switchPortal('admin');
-                navigate('/admin/dashboard');
+              onClick={async () => {
+                await logout();
+                navigate('/auth/login', { replace: true });
               }}
-              className={`px-3 py-1 text-xs font-bold rounded transition-subtle flex items-center gap-1.5 ${
-                activePortal === 'admin' ? 'bg-white text-zinc-950 shadow-xs' : 'text-zinc-400 hover:text-white'
-              }`}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-bold transition-all border border-zinc-700 cursor-pointer"
             >
-              <Building2 className="w-3.5 h-3.5 text-zinc-700" />
-              Admin Console
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-100/90 flex flex-col font-sans text-zinc-950">
+      {/* Top Banner Ticker */}
+      <div className="bg-zinc-950 text-white text-xs px-4 py-2 flex items-center justify-between gap-2 border-b border-zinc-800 sticky top-0 z-40">
+        <div className="flex items-center gap-2 font-medium">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="font-bold tracking-tight">REFERITUP PLATFORM</span>
+          <span className="hidden sm:inline text-zinc-400">| Affiliate Publisher Workspace</span>
+        </div>
+        <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+          <span>STATUS: OPERATIONAL</span>
         </div>
       </div>
 
@@ -135,12 +181,10 @@ export const UserLayout = () => {
           {/* Logo Brand Header */}
           <div className="p-5 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/50">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-zinc-950 text-white flex items-center justify-center font-black text-sm tracking-tight border border-zinc-950">
-                RE
-              </div>
+              <img src="/logo.png" alt="Referitup Logo" className="w-8 h-8 rounded-lg object-contain bg-zinc-950 p-1 border border-zinc-950 shrink-0" />
               <div>
                 <span className="font-extrabold text-base tracking-tight text-zinc-950 block leading-none">
-                  ReferEarn
+                  Referitup
                 </span>
                 <span className="text-[10px] text-zinc-500 font-mono tracking-wider block mt-1 uppercase font-semibold">
                   Publisher OS
@@ -286,7 +330,10 @@ export const UserLayout = () => {
             />
             <div className="relative w-72 max-w-[85vw] bg-white h-[100dvh] max-h-screen border-r border-zinc-200 flex flex-col p-4 z-50 overflow-hidden animate-in slide-in-from-left duration-150">
               <div className="flex items-center justify-between pb-4 mb-4 border-b border-zinc-200 shrink-0">
-                <span className="font-extrabold text-base text-zinc-950">ReferEarn Menu</span>
+                <div className="flex items-center gap-2">
+                  <img src="/logo.png" alt="Referitup" className="w-6 h-6 object-contain" />
+                  <span className="font-extrabold text-base text-zinc-950">Referitup Menu</span>
+                </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="p-1.5 rounded-md text-zinc-500 hover:bg-zinc-100 cursor-pointer"
@@ -369,6 +416,25 @@ export const UserLayout = () => {
               </button>
 
               <div className="hidden sm:flex items-center gap-2.5">
+                <a
+                  href="https://wa.me/919160442966"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-subtle"
+                  title="Contact Support on WhatsApp"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Support: +91 91604 42966</span>
+                </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/app/guide')}
+                  icon={BookOpen}
+                  className="text-xs font-semibold text-zinc-800 hover:bg-zinc-100 border-zinc-300"
+                >
+                  User Guide
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -418,6 +484,37 @@ export const UserLayout = () => {
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
             <Outlet />
           </main>
+
+          {/* Global Footer */}
+          <footer className="border-t border-zinc-200 bg-white py-4 px-6 text-center text-xs text-zinc-500 font-medium mt-auto">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 max-w-7xl mx-auto">
+              <div>
+                © {new Date().getFullYear()} <span className="font-bold text-zinc-900">Referitup</span>. All rights reserved.
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href="https://wa.me/919160442966"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-emerald-700 hover:underline inline-flex items-center gap-1"
+                >
+                  <Phone className="w-3 h-3" /> Customer Support: +91 91604 42966
+                </a>
+                <span>•</span>
+                <span>
+                  Product of{' '}
+                  <a
+                    href="https://nkxus.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-zinc-900 hover:underline"
+                  >
+                    NKXUS Pvt. Ltd. (nkxus.com)
+                  </a>
+                </span>
+              </div>
+            </div>
+          </footer>
         </div>
       </div>
 

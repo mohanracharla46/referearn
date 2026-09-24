@@ -25,6 +25,7 @@ class User extends Authenticatable
         'bank_account',
         'tier',
         'status',
+        'rejection_reason',
         'risk_score',
         'total_earnings',
         'available_balance',
